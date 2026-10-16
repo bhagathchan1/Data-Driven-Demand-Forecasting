@@ -1,0 +1,6 @@
+file,start_date,end_date,unique_dates,invalid_dates
+train.csv,2013-01-01,2017-08-15,1684,0
+test.csv,2017-08-16,2017-08-31,16,0
+transactions.csv,2013-01-01,2017-08-15,1682,0
+holidays_events.csv,2012-03-02,2017-12-26,312,0
+oil.csv,2013-01-01,2017-08-31,1218,0

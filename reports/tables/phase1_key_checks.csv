@@ -1,0 +1,8 @@
+file,candidate_key,duplicate_key_rows,exact_duplicate_rows
+train.csv,id,0,0
+test.csv,id,0,0
+stores.csv,store_nbr,0,0
+transactions.csv,"date, store_nbr",0,0
+holidays_events.csv,"date, type, locale, locale_name, description, transferred",0,0
+oil.csv,date,0,0
+sample_submission.csv,id,0,0

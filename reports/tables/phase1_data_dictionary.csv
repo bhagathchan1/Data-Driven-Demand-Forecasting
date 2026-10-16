@@ -1,0 +1,12 @@
+field,meaning,analytical_role
+date,Calendar date,Shared time join; daily planning grain
+store_nbr,Store identifier,Joins sales/test/transactions to stores
+family,Product-family category,Category-level demand dimension
+sales,Observed sales for a store-family-date,Forecast target; may include fractional units
+onpromotion,Number of promoted items in a family,"Promotion-intensity indicator, not causal assignment"
+city / state,Store geography,Used for geographic and holiday-scope matching
+type,Anonymized store type,Store-format comparison dimension
+cluster,Grouping of similar stores,Store-segmentation dimension
+transactions,Reported daily store transactions,Traffic proxy at store-date grain
+holiday fields,"Event type, locale, description, transfer flag",Context requiring scope-aware joins
+dcoilwtico,WTI oil price,Exploratory macro-context variable

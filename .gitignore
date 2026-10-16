@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Jupyter and editors
+.ipynb_checkpoints/
+.DS_Store
+.vscode/
+.idea/
+
+# Raw and generated data: keep directory markers only
+data/raw/*
+!data/raw/.gitkeep
+data/processed/*
+!data/processed/.gitkeep
+outputs/processed_data/*
+!outputs/processed_data/.gitkeep
+outputs/forecasts/*
+!outputs/forecasts/.gitkeep
+outputs/model_results/*
+!outputs/model_results/.gitkeep
+
+# Local notebook previews
+notebooks/*.html

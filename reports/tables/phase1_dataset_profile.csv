@@ -1,0 +1,8 @@
+file,rows,columns,memory_mb,exact_duplicate_rows,missing_cells,date_min,date_max
+train.csv,3000888,6,308.39,0,0,2013-01-01,2017-08-15
+test.csv,28512,5,2.71,0,0,2017-08-16,2017-08-31
+stores.csv,54,5,0.01,0,0,,
+transactions.csv,83488,3,1.91,0,0,2013-01-01,2017-08-15
+holidays_events.csv,350,6,0.09,0,0,2012-03-02,2017-12-26
+oil.csv,1218,2,0.02,0,43,2013-01-01,2017-08-31
+sample_submission.csv,28512,2,0.44,0,0,,

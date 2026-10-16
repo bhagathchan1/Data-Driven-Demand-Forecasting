@@ -1,0 +1,8 @@
+check,value
+negative sales rows,0
+zero sales rows,939130
+negative promotion rows,0
+negative transaction rows,0
+oil rows with missing price,43
+additional holiday rows on repeated dates,38
+transferred holiday records,12
