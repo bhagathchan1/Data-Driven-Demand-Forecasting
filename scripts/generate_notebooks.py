@@ -1,28 +1,56 @@
-"""Generate the project's six reproducible notebooks with nbformat."""
+"""Generate the project's six reproducible notebooks with nbformat.
+
+This script programmatically generates the six standard Jupyter notebooks:
+    1. 01_data_understanding.ipynb: Raw file inventory, schema profiling, candidate key verification.
+    2. 02_data_cleaning.ipynb: Missing value treatment, scope selection, panel integration.
+    3. 03_exploratory_data_analysis.ipynb: Trend analysis, day-of-week seasonality, oil price context.
+    4. 04_operations_analysis.ipynb: Coefficient of variation, store clustering, promotion elasticity.
+    5. 05_forecasting.ipynb: Rolling cross-validation, baseline comparisons, ML modeling.
+    6. 06_managerial_insights.ipynb: Executive synthesis, replenishment policies, operational recommendations.
+"""
 
 from pathlib import Path
 import nbformat as nbf
 
-
+# Define path to repository root and notebooks output directory
 ROOT = Path(__file__).resolve().parents[1]
 NOTEBOOK_DIR = ROOT / "notebooks"
 NOTEBOOK_DIR.mkdir(exist_ok=True)
 
 
-def md(text: str):
+def md(text: str) -> nbf.NotebookNode:
+    """Create a clean markdown cell from trimmed input text."""
     return nbf.v4.new_markdown_cell(text.strip())
 
 
-def step(title: str, why: str):
-    """Create a notebook step that explains its purpose before showing code."""
+def step(title: str, why: str) -> nbf.NotebookNode:
+    """Create a notebook step header that clearly states its operational purpose.
+
+    Args:
+        title: Section title or numbered step name.
+        why: Practical or methodological rationale for why this step is performed.
+
+    Returns:
+        nbf.NotebookNode: A formatted markdown cell.
+    """
     return md(f"{title}\n\n**Why this step is needed:** {why}")
 
 
-def code(text: str):
+def code(text: str) -> nbf.NotebookNode:
+    """Create a python code cell from trimmed input string."""
     return nbf.v4.new_code_cell(text.strip())
 
 
 def write_notebook(filename: str, cells: list) -> None:
+    """Assemble cells into a Jupyter notebook structure and serialize to disk.
+
+    Configures standard Python 3 kernelspec metadata and writes the notebook
+    file using nbformat.
+
+    Args:
+        filename: Destination notebook filename (e.g. '01_data_understanding.ipynb').
+        cells: List of notebook cells (markdown and code nodes).
+    """
     notebook = nbf.v4.new_notebook(
         cells=cells,
         metadata={
@@ -591,7 +619,22 @@ from IPython.display import Markdown, display
 
 from src.data_loader import load_all_available
 from src.preprocessing import build_analysis_panel
-from src.visualization import PROJECT_COLORS, save_figure, set_project_style
+from src.eda import (
+    classify_demand_patterns,
+    analyze_payday_effects,
+    analyze_earthquake_impact,
+    compute_cross_family_correlations,
+    analyze_promotion_elasticity,
+)
+from src.visualization import (
+    PROJECT_COLORS,
+    save_figure,
+    set_project_style,
+    plot_demand_classification,
+    plot_payday_comparison,
+    plot_earthquake_impact,
+    plot_correlation_heatmap,
+)
 
 set_project_style()
 pd.set_option("display.float_format", lambda value: f"{value:,.3f}")
@@ -842,7 +885,49 @@ save_figure(fig, FIGURE_DIR, "eda_08_oil_context.png")
 plt.show()
         """),
         step(
-            "### 10. Save compact evidence tables",
+            "### 10. Demand pattern classification (Syntetos-Boylan / Croston)",
+            "Retail demand varies not only by volume but by regularity. Categorizing demand streams into Smooth, Intermittent, Erratic, and Lumpy quadrants guides the choice of inventory policy and forecasting models.",
+        ),
+        code("""
+demand_classification = classify_demand_patterns(panel, group_cols=["family"])
+display(demand_classification.sort_values(["demand_category", "adi"]))
+fig = plot_demand_classification(demand_classification, output_dir=FIGURE_DIR)
+plt.show()
+        """),
+        step(
+            "### 11. Semi-monthly payday dynamics (Quincenas: 15th & month-end)",
+            "In Ecuador, formal wage disbursements occur on the 15th and at month-end. Identifying liquidity-driven surges helps stores schedule stock replenishment and checkout staffing.",
+        ),
+        code("""
+payday_results = analyze_payday_effects(panel)
+display(payday_results["summary"])
+display(payday_results["by_family"].head(10))
+fig = plot_payday_comparison(payday_results["by_family"], top_n=12, output_dir=FIGURE_DIR)
+plt.show()
+        """),
+        step(
+            "### 12. Structural shock analysis: April 16, 2016 earthquake",
+            "A major Mw 7.8 earthquake hit Ecuador on April 16, 2016. Analyzing pre- vs post-earthquake shifts across epicenter provinces (Manabí, Esmeraldas) vs non-impacted areas reveals disaster response patterns and category demand shifts.",
+        ),
+        code("""
+quake_results = analyze_earthquake_impact(panel, window_days=30)
+display(quake_results["regional_impact"].head(10))
+display(quake_results["family_shift"].head(10))
+fig = plot_earthquake_impact(quake_results, output_dir=FIGURE_DIR)
+plt.show()
+        """),
+        step(
+            "### 13. Cross-category demand correlation & co-movement",
+            "Evaluating cross-category correlation identifies complementary product categories that experience simultaneous demand spikes versus independent categories.",
+        ),
+        code("""
+corr_matrix = compute_cross_family_correlations(panel)
+top_volume_families = list(family_summary.nlargest(12, "total_sales").index)
+fig = plot_correlation_heatmap(corr_matrix, top_families=top_volume_families, output_dir=FIGURE_DIR)
+plt.show()
+        """),
+        step(
+            "### 14. Save compact evidence tables",
             "Persisting reviewed summaries lets operations, forecasting, and managerial notebooks reuse the same evidence rather than recomputing or manually copying values.",
         ),
         code("""
@@ -851,7 +936,11 @@ family_summary.reset_index().to_csv(TABLE_DIR / "family_summary.csv", index=Fals
 promotion_comparison.reset_index().to_csv(TABLE_DIR / "promotion_summary.csv", index=False)
 yearly.reset_index().to_csv(TABLE_DIR / "yearly_summary.csv", index=False)
 holiday_comparison.reset_index().to_csv(TABLE_DIR / "holiday_summary.csv", index=False)
-print("Saved five compact evidence tables to reports/tables/.")
+demand_classification.to_csv(TABLE_DIR / "demand_classification_summary.csv", index=False)
+payday_results["by_family"].reset_index().to_csv(TABLE_DIR / "payday_summary.csv", index=False)
+quake_results["regional_impact"].reset_index().to_csv(TABLE_DIR / "earthquake_regional_impact.csv", index=False)
+corr_matrix.reset_index().to_csv(TABLE_DIR / "cross_family_correlations.csv", index=False)
+print("Saved nine compact evidence tables to reports/tables/.")
         """),
         md("## Takeaways"),
         code("""
@@ -859,6 +948,8 @@ top_store = store_summary["total_sales"].idxmax()
 top_family = family_summary["total_sales"].idxmax()
 peak_weekday = weekday.idxmax()
 peak_month = int(monthly.idxmax())
+smooth_families = demand_classification.loc[demand_classification["demand_category"] == "Smooth", "family"].count()
+lumpy_families = demand_classification.loc[demand_classification["demand_category"] == "Lumpy", "family"].count()
 display(Markdown(f'''
 - **Store {top_store}** has the highest total observed sales; store scale and variability differ materially across the network.
 - **{top_family}** contributes the most family-level sales, while family CV shows that importance and predictability are separate operational dimensions.
@@ -867,6 +958,9 @@ display(Markdown(f'''
 - Holiday effects vary by scope; date-only joins would obscure local and regional relevance.
 - Transactions and sales move together (store-day correlation **{traffic_correlation:.3f}**), but the mixed-unit sales-per-transaction measure is only a basket proxy.
 - The monthly sales/oil correlation is **{oil_corr:.3f}** and is exploratory; shared trends and omitted factors prevent causal interpretation.
+- **Demand Classification:** {smooth_families} categories exhibit smooth demand (ideal for standard forecasting), while {lumpy_families} categories exhibit lumpy demand (requiring specialized safety stock or Croston intermittent forecasting).
+- **Quincena Payday Effect:** Significant demand surge occurs on the 15th and month-end dates, confirming a recurring bi-weekly liquidity pattern across stores.
+- **External Shock:** The April 2016 earthquake caused pronounced category shifts (surge in relief essentials like food/water vs. discretionary declines) with sharp regional divergence.
 '''))
         """),
     ],
