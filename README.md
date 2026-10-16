@@ -122,6 +122,8 @@ Important figures are saved at presentation resolution in `reports/figures/`, an
 
 The completed business-oriented analysis is available in [`reports/final_report.md`](reports/final_report.md). It includes a clear explanation of why a confusion matrix is not appropriate for continuous sales forecasting and documents the correct regression metrics and validation evidence.
 
+A copy-ready, slide-by-slide brief for generating the MBA presentation is available in [`Presentation.md`](Presentation.md). It contains validated figures, chart references, speaker notes, limitations, and instructions for a presentation-generating LLM.
+
 Every numbered notebook step begins with **Why this step is needed** before the code. Non-obvious transformations also include focused comments explaining grain protection, join validation, lifecycle coverage, leakage prevention, and model comparison logic, making the notebooks suitable for a new reader or project viva.
 
 ## Key analytical questions
