@@ -13,6 +13,11 @@ def md(text: str):
     return nbf.v4.new_markdown_cell(text.strip())
 
 
+def step(title: str, why: str):
+    """Create a notebook step that explains its purpose before showing code."""
+    return md(f"{title}\n\n**Why this step is needed:** {why}")
+
+
 def code(text: str):
     return nbf.v4.new_code_cell(text.strip())
 
@@ -34,6 +39,8 @@ import sys
 import warnings
 
 warnings.filterwarnings("ignore", category=FutureWarning)
+# Resolve the repository root dynamically so the notebook works from either
+# the project root or the notebooks directory without a local absolute path.
 candidate = Path.cwd().resolve()
 PROJECT_ROOT = next(
     path for path in (candidate, *candidate.parents)
@@ -48,6 +55,7 @@ OUTPUT_DATA_DIR = PROJECT_ROOT / "outputs" / "processed_data"
 FIGURE_DIR = PROJECT_ROOT / "reports" / "figures"
 TABLE_DIR = PROJECT_ROOT / "reports" / "tables"
 for directory in (PROCESSED_DATA_DIR, OUTPUT_DATA_DIR, FIGURE_DIR, TABLE_DIR):
+    # Creating output folders is safe; raw source files are never modified.
     directory.mkdir(parents=True, exist_ok=True)
 
 RANDOM_SEED = 42
@@ -94,7 +102,10 @@ from src.data_loader import (
 pd.set_option("display.max_columns", 20)
 pd.set_option("display.float_format", lambda value: f"{value:,.3f}")
         """),
-        md("## Data\n\n### 1. Verify available inputs"),
+        step(
+            "## Data\n\n### 1. Verify available inputs",
+            "A reproducible analysis must confirm which files are actually available before referring to them. This prevents later failures and avoids silently analyzing an incomplete dataset.",
+        ),
         code("""
 inventory = inspect_available_files(RAW_DATA_DIR)
 display(inventory)
@@ -103,7 +114,10 @@ if missing_files:
     raise FileNotFoundError(f"Missing expected files: {missing_files}. See data/README.md.")
 print(f"Verified {inventory['available'].sum()} of {len(EXPECTED_FILES)} expected files.")
         """),
-        md("### 2. Load the available CSVs"),
+        step(
+            "### 2. Load the available CSVs",
+            "Loading through one reusable function gives every notebook consistent date parsing, file checks, and error messages.",
+        ),
         code("""
 datasets = load_all_available(RAW_DATA_DIR)
 profiles = pd.DataFrame(
@@ -114,7 +128,10 @@ display(profiles)
         md("""
 **How to interpret this step:** row and column counts confirm the scale of each source, while memory usage indicates whether full-population analysis is practical. The tables are loaded independently here so that their grain is understood before any merge can silently multiply or remove records.
         """),
-        md("### 3. Explain the datasets and their proposed grain"),
+        step(
+            "### 3. Explain the datasets and their proposed grain",
+            "The grain defines what one row represents. Understanding it before merging is essential because incompatible grains can duplicate sales or remove valid records.",
+        ),
         code("""
 grain_map = {
     "train.csv": "one date × store × product family",
@@ -135,7 +152,10 @@ dataset_dictionary = pd.DataFrame(
 )
 display(dataset_dictionary)
         """),
-        md("## Results\n\n### 4. Columns and data types"),
+        step(
+            "## Results\n\n### 4. Columns and data types",
+            "Schema checks confirm which fields are numeric, categorical, or temporal and reveal type corrections needed before calculation or joining.",
+        ),
         code("""
 schema_rows = []
 for filename, frame in datasets.items():
@@ -144,7 +164,10 @@ for filename, frame in datasets.items():
 schema = pd.DataFrame(schema_rows)
 display(schema)
         """),
-        md("### 5. Date coverage, stores, and product families"),
+        step(
+            "### 5. Date coverage, stores, and product families",
+            "Coverage boundaries and entity counts establish the population represented by the analysis and expose gaps or unexpected scope differences.",
+        ),
         code("""
 date_coverage = []
 for filename, frame in datasets.items():
@@ -167,7 +190,10 @@ print(f"Training product families: {train['family'].nunique():,}")
 print(f"Store master rows: {len(stores):,}; unique store numbers: {stores['store_nbr'].nunique():,}")
 display(pd.DataFrame({"product_family": sorted(train["family"].unique())}))
         """),
-        md("### 6. Candidate-key, duplicate, and join checks"),
+        step(
+            "### 6. Candidate-key, duplicate, and join checks",
+            "Keys protect the intended unit of analysis. Duplicate keys can double-count demand, while unmatched store keys can invalidate store-level comparisons.",
+        ),
         code("""
 key_checks = []
 for filename, key in CANDIDATE_KEYS.items():
@@ -192,7 +218,10 @@ print(f"Test store keys absent from stores.csv: {orphan_test_stores:,}")
         md("""
 **Why this matters operationally:** a demand-planning result is only credible if each sales observation represents one intended planning unit. Duplicate keys could double-count demand, while unmatched stores would remove geography, type, and cluster context from store comparisons.
         """),
-        md("### 7. Missing values and memory usage"),
+        step(
+            "### 7. Missing values and memory usage",
+            "Missingness affects which analyses are trustworthy, while memory usage helps decide whether to work with the full panel or a justified subset.",
+        ),
         code("""
 missing_rows = []
 for filename, frame in datasets.items():
@@ -210,14 +239,20 @@ missing_summary = pd.DataFrame(missing_rows)
 display(missing_summary.loc[missing_summary["missing_count"].gt(0)])
 display(profiles[["file", "rows", "columns", "memory_mb"]])
         """),
-        md("### 8. Descriptive statistics"),
+        step(
+            "### 8. Descriptive statistics",
+            "Basic distributions provide a first reasonableness check for ranges, scales, skew, and unusual values before making business interpretations.",
+        ),
         code("""
 for filename in ("train.csv", "transactions.csv", "oil.csv", "stores.csv"):
     print()
     print(filename)
     display(datasets[filename].describe(include="all").T)
         """),
-        md("### 9. Domain-specific first checks"),
+        step(
+            "### 9. Domain-specific first checks",
+            "Retail data requires checks that generic profiling misses, such as negative demand, zero sales, unusual promotions, missing oil prices, and overlapping event dates.",
+        ),
         code("""
 holidays = datasets["holidays_events.csv"]
 transactions = datasets["transactions.csv"]
@@ -238,7 +273,10 @@ display(domain_checks)
         md("""
 **Why values are flagged rather than deleted:** retail extremes may be genuine operational signals. Zero sales can reflect low demand, closures, or stockouts; spikes can reflect promotions, holidays, paydays, or disruptions. Notebook 02 investigates these observations in context before applying any treatment.
         """),
-        md("### 10. Small data dictionary"),
+        step(
+            "### 10. Small data dictionary",
+            "A shared definition of each important field keeps the technical work and the MBA business narrative aligned.",
+        ),
         code("""
 data_dictionary = pd.DataFrame(
     [
@@ -258,7 +296,10 @@ data_dictionary = pd.DataFrame(
 )
 display(data_dictionary)
         """),
-        md("### 11. Export small audit tables for report and presentation use"),
+        step(
+            "### 11. Export small audit tables for report and presentation use",
+            "Compact evidence tables make important checks reusable in the final report and slides without copying large raw outputs.",
+        ),
         code("""
 profiles.to_csv(TABLE_DIR / "phase1_dataset_profile.csv", index=False)
 pd.DataFrame(date_coverage).to_csv(TABLE_DIR / "phase1_date_coverage.csv", index=False)
@@ -346,7 +387,10 @@ pd.set_option("display.float_format", lambda value: f"{value:,.3f}")
 datasets = load_all_available(RAW_DATA_DIR)
 train = datasets["train.csv"]
         """),
-        md("## Data\n\n### 1. Systematic source-quality checks"),
+        step(
+            "## Data\n\n### 1. Systematic source-quality checks",
+            "Cleaning decisions should begin with measured defects, not assumptions. This repeats the critical source checks before any transformation changes the data.",
+        ),
         code("""
 quality_checks = []
 for filename, frame in datasets.items():
@@ -366,7 +410,10 @@ print("Zero sales:", f"{train['sales'].eq(0).sum():,}", f"({100*train['sales'].e
 print("Negative promotions:", int(train["onpromotion"].lt(0).sum()))
 print("Maximum onpromotion:", int(train["onpromotion"].max()))
         """),
-        md("### 2. Investigate extremes without deleting them"),
+        step(
+            "### 2. Investigate extremes without deleting them",
+            "Large retail values may represent genuine holiday, promotion, or disruption effects. Profiling them first avoids removing precisely the peaks that operations managers need to plan for.",
+        ),
         code("""
 sales_quantiles = train["sales"].quantile([0, .5, .9, .95, .99, .999, 1]).rename("sales")
 promotion_quantiles = train["onpromotion"].quantile([0, .5, .9, .95, .99, .999, 1]).rename("onpromotion")
@@ -383,7 +430,10 @@ extreme_context = (
 display(extreme_context)
 print("Decision: retain extremes; later notebooks test holiday, promotion, timing, and family context.")
         """),
-        md("### 3. Inspect oil, holidays, and transactions before integration"),
+        step(
+            "### 3. Inspect oil, holidays, and transactions before integration",
+            "The context tables have different grains and coverage. Inspecting them separately prevents missing oil values, repeated holiday dates, or partial transaction records from corrupting the sales panel.",
+        ),
         code("""
 oil = datasets["oil.csv"]
 holidays = datasets["holidays_events.csv"]
@@ -402,7 +452,10 @@ context_quality = pd.DataFrame(
 display(context_quality)
 display(holidays.groupby(["locale", "type", "transferred"]).size().rename("records").reset_index())
         """),
-        md("## Results\n\n### 4. Build and validate the integrated panel"),
+        step(
+            "## Results\n\n### 4. Build and validate the integrated panel",
+            "A combined panel is required for operational analysis, but every join must preserve the date-store-family grain and the original sales-row count.",
+        ),
         code("""
 panel = build_analysis_panel(datasets)
 print(f"Rows before merge: {len(train):,}")
@@ -413,7 +466,10 @@ print("Missing oil after daily fill:", int(panel["dcoilwtico"].isna().sum()))
 print("Sales rows whose store-date lacks transactions:", f"{panel['transaction_record_missing'].sum():,}")
 display(panel.head())
         """),
-        md("### 5. Explain missing transaction coverage"),
+        step(
+            "### 5. Explain missing transaction coverage",
+            "A missing transaction row is not the same as zero customer traffic. Store-level coverage and first-sales dates help distinguish mature stores from later openings or source gaps.",
+        ),
         code("""
 store_date = panel.groupby(["store_nbr", "date"], observed=True).agg(
     sales=("sales", "sum"),
@@ -423,13 +479,24 @@ missing_tx = store_date.loc[store_date["transactions"].isna()]
 tx_by_store = store_date.groupby("store_nbr").agg(
     observed_store_dates=("date", "size"),
     transaction_coverage_pct=("transactions", lambda values: 100 * values.notna().mean()),
-    first_positive_sales_date=("date", "min"),
-).sort_values("transaction_coverage_pct")
+    active_sales_days_pct=("sales", lambda values: 100 * values.gt(0).mean()),
+)
+first_positive = store_date.loc[store_date["sales"].gt(0)].groupby("store_nbr")["date"].min()
+tx_by_store["first_positive_sales_date"] = first_positive
+tx_by_store["comparable_for_scope"] = (
+    tx_by_store["transaction_coverage_pct"].ge(90)
+    & tx_by_store["active_sales_days_pct"].ge(90)
+)
+tx_by_store = tx_by_store.sort_values("transaction_coverage_pct")
 display(tx_by_store.head(10))
 print(f"Missing transaction store-dates: {len(missing_tx):,} of {len(store_date):,} ({100*len(missing_tx)/len(store_date):.2f}%)")
 print("Decision: retain missingness; do not interpret missing transaction rows as zero traffic.")
+print("Scope rule: compare volume and CV only among stores with at least 90% transaction and active-sales coverage.")
         """),
-        md("### 6. Select the detailed-analysis scope from observed evidence"),
+        step(
+            "### 6. Select the detailed-analysis scope from observed evidence",
+            "The full dataset remains the source for network conclusions, while a transparent representative subset keeps detailed comparisons readable and computationally manageable.",
+        ),
         code("""
 selected_stores, selected_families, scope_start = choose_analysis_scope(panel)
 scope_end = panel["date"].max()
@@ -437,6 +504,7 @@ scope_end = panel["date"].max()
 store_daily = panel.groupby(["store_nbr", "date"], observed=True)["sales"].sum().reset_index()
 store_metrics = store_daily.groupby("store_nbr")["sales"].agg(total_sales="sum", mean_daily_sales="mean", std_daily_sales="std")
 store_metrics["cv"] = store_metrics["std_daily_sales"] / store_metrics["mean_daily_sales"]
+store_metrics = store_metrics.join(tx_by_store[["transaction_coverage_pct", "active_sales_days_pct", "comparable_for_scope"]])
 
 family_daily = panel.groupby(["family", "date"], observed=True)["sales"].sum().reset_index()
 family_metrics = family_daily.groupby("family", observed=True)["sales"].agg(total_sales="sum", mean_daily_sales="mean", std_daily_sales="std")
@@ -448,7 +516,10 @@ print("Selected stores:", selected_stores)
 print("Selected families:", selected_families)
 print("Detailed period:", scope_start.date(), "to", scope_end.date())
         """),
-        md("### 7. Save only the manageable analysis subset and scope metadata"),
+        step(
+            "### 7. Save only the manageable analysis subset and scope metadata",
+            "Saving the chosen data together with its selection logic makes later notebooks reproducible without creating another unnecessary copy of the full three-million-row panel.",
+        ),
         code("""
 subset = panel.loc[
     panel["store_nbr"].isin(selected_stores)
@@ -464,7 +535,8 @@ scope = {
     "start_date": scope_start.strftime("%Y-%m-%d"),
     "end_date": scope_end.strftime("%Y-%m-%d"),
     "selection_logic": (
-        "Stores: two highest-volume, one median-volume, one lowest-volume, and one remaining high-CV store. "
+        "Stores with at least 90% transaction and active-sales coverage: two highest-volume, "
+        "one median-volume, one lowest-volume, and one remaining high-CV store. "
         "Families: four highest-volume plus the highest-CV family among the top 15 by volume."
     ),
 }
@@ -529,7 +601,10 @@ scope = json.loads((OUTPUT_DATA_DIR / "analysis_scope.json").read_text())
 selected_stores = scope["selected_stores"]
 selected_families = scope["selected_families"]
         """),
-        md("## Results\n\n### 1. Overall demand trend and rolling average"),
+        step(
+            "## Results\n\n### 1. Overall demand trend and rolling average",
+            "The network trend establishes the broad direction of observed sales, while a rolling average reduces day-to-day noise so sustained changes are easier to see.",
+        ),
         code("""
 daily_total = panel.groupby("date", observed=True)["sales"].sum().sort_index()
 rolling_28 = daily_total.rolling(28, min_periods=14).mean()
@@ -541,7 +616,10 @@ ax.legend()
 save_figure(fig, FIGURE_DIR, "eda_01_total_sales_trend.png")
 plt.show()
         """),
-        md("### 2. Year, month, and weekday patterns"),
+        step(
+            "### 2. Year, month, and weekday patterns",
+            "Calendar patterns reveal recurring workload differences that may affect staffing, delivery schedules, receiving capacity, and replenishment cadence.",
+        ),
         code("""
 calendar_daily = daily_total.rename("sales").reset_index()
 calendar_daily["year"] = calendar_daily["date"].dt.year
@@ -563,7 +641,10 @@ fig.tight_layout()
 save_figure(fig, FIGURE_DIR, "eda_02_calendar_patterns.png")
 plt.show()
         """),
-        md("### 3. Store ranking, type, cluster, and geography"),
+        step(
+            "### 3. Store ranking, type, cluster, and geography",
+            "Store totals alone do not explain operating context. Adding format, cluster, geography, traffic coverage, and variability supports more defensible comparisons.",
+        ),
         code("""
 store_daily = panel.groupby(["store_nbr", "date"], observed=True).agg(
     sales=("sales", "sum"), transactions=("transactions", "max")
@@ -602,7 +683,10 @@ cluster_summary = store_summary.groupby("cluster", observed=True).agg(
 display(geo_summary.head(10))
 display(cluster_summary)
         """),
-        md("### 4. Product-family importance, variability, and growth"),
+        step(
+            "### 4. Product-family importance, variability, and growth",
+            "Volume indicates commercial importance, whereas variability indicates planning difficulty. Both are needed to avoid treating high-sales and high-uncertainty categories as the same problem.",
+        ),
         code("""
 family_daily = panel.groupby(["family", "date"], observed=True)["sales"].sum().reset_index()
 family_summary = family_daily.groupby("family", observed=True)["sales"].agg(
@@ -632,7 +716,10 @@ fig.tight_layout()
 save_figure(fig, FIGURE_DIR, "eda_04_family_importance_variability.png")
 plt.show()
         """),
-        md("### 5. Detailed store-family comparison for the justified subset"),
+        step(
+            "### 5. Detailed store-family comparison for the justified subset",
+            "A store-family view reveals differences hidden by network totals and creates a manageable visual for an MBA presentation.",
+        ),
         code("""
 scope_panel = panel.loc[
     panel["store_nbr"].isin(selected_stores) & panel["family"].isin(selected_families)
@@ -648,7 +735,10 @@ fig.tight_layout()
 save_figure(fig, FIGURE_DIR, "eda_05_store_family_heatmap.png")
 plt.show()
         """),
-        md("### 6. Promotion association and heterogeneity"),
+        step(
+            "### 6. Promotion association and heterogeneity",
+            "Comparing promoted and non-promoted observations identifies where operational coordination may matter, while remaining explicitly descriptive because promotions were not randomly assigned.",
+        ),
         code("""
 promotion_comparison = panel.assign(promoted=panel["onpromotion"].gt(0)).groupby(
     ["family", "promoted"], observed=True
@@ -676,7 +766,10 @@ store_promo = panel.assign(promoted=panel["onpromotion"].gt(0)).groupby(
 store_promo["ratio"] = store_promo[True] / store_promo[False].replace(0, np.nan)
 display(store_promo["ratio"].sort_values(ascending=False).head(10).rename("promoted_to_nonpromoted_ratio"))
         """),
-        md("### 7. Holidays and major events"),
+        step(
+            "### 7. Holidays and major events",
+            "Holiday effects can differ by national, regional, and local scope. Scope-aware comparisons help identify potential peak periods without misapplying local events to every store.",
+        ),
         code("""
 store_date = panel.groupby(["store_nbr", "date"], observed=True).agg(
     sales=("sales", "sum"),
@@ -699,7 +792,10 @@ daily_event = datasets["holidays_events.csv"].loc[
 daily_sales = daily_total.to_frame().join(daily_event).dropna()
 display(daily_sales.nlargest(12, "sales"))
         """),
-        md("### 8. Transactions, traffic, and the sales-per-transaction proxy"),
+        step(
+            "### 8. Transactions, traffic, and the sales-per-transaction proxy",
+            "Transactions provide a store-traffic proxy that helps separate changes in customer visits from changes in the mixed-unit sales measure.",
+        ),
         code("""
 traffic = panel.groupby(["date", "store_nbr"], observed=True).agg(
     sales=("sales", "sum"), transactions=("transactions", "max")
@@ -721,7 +817,10 @@ fig.tight_layout()
 save_figure(fig, FIGURE_DIR, "eda_07_transactions.png")
 plt.show()
         """),
-        md("### 9. Oil prices as exploratory context"),
+        step(
+            "### 9. Oil prices as exploratory context",
+            "Oil is a possible macroeconomic context variable, but a visual and correlation are used only to screen for patterns—not to claim that oil prices cause demand changes.",
+        ),
         code("""
 oil_daily = panel.groupby("date", observed=True).agg(
     sales=("sales", "sum"), dcoilwtico=("dcoilwtico", "max")
@@ -742,7 +841,10 @@ ax1.legend(lines, [line.get_label() for line in lines], loc="upper left")
 save_figure(fig, FIGURE_DIR, "eda_08_oil_context.png")
 plt.show()
         """),
-        md("### 10. Save compact evidence tables"),
+        step(
+            "### 10. Save compact evidence tables",
+            "Persisting reviewed summaries lets operations, forecasting, and managerial notebooks reuse the same evidence rather than recomputing or manually copying values.",
+        ),
         code("""
 store_summary.reset_index().to_csv(TABLE_DIR / "store_summary.csv", index=False)
 family_summary.reset_index().to_csv(TABLE_DIR / "family_summary.csv", index=False)
@@ -802,7 +904,10 @@ pd.set_option("display.float_format", lambda value: f"{value:,.3f}")
 datasets = load_all_available(RAW_DATA_DIR)
 panel = build_analysis_panel(datasets)
         """),
-        md("## Results\n\n### 1. Family demand variability and operational segments"),
+        step(
+            "## Results\n\n### 1. Family demand variability and operational segments",
+            "Combining demand level with coefficient of variation produces practical portfolio groups: routine high-volume flows, uncertain high-volume flows, and lower-priority stable or volatile categories.",
+        ),
         code("""
 family_daily = panel.groupby(["family", "date"], observed=True)["sales"].sum().reset_index()
 family_ops = family_daily.groupby("family", observed=True)["sales"].agg(
@@ -832,7 +937,10 @@ ax.legend()
 save_figure(fig, FIGURE_DIR, "operations_01_family_segments.png")
 plt.show()
         """),
-        md("### 2. Store performance and operating profiles"),
+        step(
+            "### 2. Store performance and operating profiles",
+            "Store planning should reflect scale, variability, traffic, promotion exposure, and lifecycle coverage. The 90% coverage rule prevents later openings from being mislabeled as ordinary volatility.",
+        ),
         code("""
 store_daily = panel.groupby(["store_nbr", "date"], observed=True).agg(
     sales=("sales", "sum"), transactions=("transactions", "max"), onpromotion=("onpromotion", "sum")
@@ -843,28 +951,39 @@ store_ops = store_daily.groupby("store_nbr").agg(
     average_daily_transactions=("transactions", "mean"),
     transaction_coverage_pct=("transactions", lambda values: 100 * values.notna().mean()),
     promoted_item_days=("onpromotion", lambda values: values.gt(0).sum()),
+    active_sales_days=("sales", lambda values: values.gt(0).sum()),
     observed_days=("date", "size"),
 )
 store_ops["demand_cv"] = store_ops["std_daily_sales"] / store_ops["average_daily_sales"]
 store_ops["promotion_active_days_pct"] = 100 * store_ops["promoted_item_days"] / store_ops["observed_days"]
+store_ops["active_sales_days_pct"] = 100 * store_ops["active_sales_days"] / store_ops["observed_days"]
+store_ops["comparable_store"] = (
+    store_ops["transaction_coverage_pct"].ge(90)
+    & store_ops["active_sales_days_pct"].ge(90)
+)
 
 monthly_store = store_daily.assign(month=store_daily["date"].dt.month).groupby(["store_nbr", "month"])["sales"].mean()
 store_ops["seasonal_sensitivity"] = monthly_store.groupby("store_nbr").max() / monthly_store.groupby("store_nbr").mean()
 store_ops = store_ops.join(datasets["stores.csv"].set_index("store_nbr"))
 display(store_ops.sort_values("average_daily_sales", ascending=False).head(15))
+display(store_ops.loc[~store_ops["comparable_store"]].sort_values("transaction_coverage_pct"))
 
 fig, ax = plt.subplots(figsize=(11, 7))
+comparable_ops = store_ops.loc[store_ops["comparable_store"]]
 scatter = ax.scatter(
-    store_ops["average_daily_sales"], store_ops["demand_cv"],
-    s=20 + 2 * store_ops["average_daily_transactions"].fillna(0) ** .5,
-    c=store_ops["promotion_active_days_pct"], cmap="viridis", alpha=.8
+    comparable_ops["average_daily_sales"], comparable_ops["demand_cv"],
+    s=20 + 2 * comparable_ops["average_daily_transactions"].fillna(0) ** .5,
+    c=comparable_ops["promotion_active_days_pct"], cmap="viridis", alpha=.8
 )
-ax.set(title="Store operating profiles", xlabel="Average daily sales", ylabel="Demand CV")
+ax.set(title="Store operating profiles — comparable mature stores", xlabel="Average daily sales", ylabel="Demand CV")
 fig.colorbar(scatter, ax=ax, label="Promotion-active days (%)")
 save_figure(fig, FIGURE_DIR, "operations_02_store_profiles.png")
 plt.show()
         """),
-        md("### 3. Promotion planning indicators"),
+        step(
+            "### 3. Promotion planning indicators",
+            "Promotion-associated demand differs by family, so category-specific ratios can prioritize staffing and replenishment coordination while avoiding unsupported causal-lift claims.",
+        ),
         code("""
 promo = panel.assign(promoted=panel["onpromotion"].gt(0)).groupby(
     ["family", "promoted"], observed=True
@@ -886,7 +1005,10 @@ ax.set(title="Promotion association among high-volume families", xlabel="Promote
 save_figure(fig, FIGURE_DIR, "operations_03_promotion_planning.png")
 plt.show()
         """),
-        md("### 4. Peak-demand calendar for staffing and capacity"),
+        step(
+            "### 4. Peak-demand calendar for staffing and capacity",
+            "Recurring weekday and monthly peaks translate demand history into concrete reviews of labor, checkout, receiving, shelf replenishment, and supplier capacity.",
+        ),
         code("""
 network_daily = panel.groupby("date", observed=True).agg(
     sales=("sales", "sum"), is_holiday=("is_holiday", "max"), onpromotion=("onpromotion", "sum")
@@ -914,7 +1036,10 @@ fig.tight_layout()
 save_figure(fig, FIGURE_DIR, "operations_04_peak_calendar.png")
 plt.show()
         """),
-        md("### 5. Save operational evidence tables"),
+        step(
+            "### 5. Save operational evidence tables",
+            "The final insight notebook should read small, reviewed evidence tables rather than repeat heavy transformations or depend on hidden notebook state.",
+        ),
         code("""
 family_ops.reset_index().to_csv(TABLE_DIR / "family_operations_segments.csv", index=False)
 store_ops.reset_index().to_csv(TABLE_DIR / "store_operations_summary.csv", index=False)
@@ -928,10 +1053,10 @@ print("Saved five operations evidence tables.")
 segment_counts = family_ops["segment"].value_counts()
 peak_day = peak_weekdays["mean"].idxmax()
 peak_month = int(peak_months["mean"].idxmax())
-most_variable_store = int(store_ops["demand_cv"].idxmax())
+most_variable_store = int(store_ops.loc[store_ops["comparable_store"], "demand_cv"].idxmax())
 display(Markdown(f'''
 - **Finding:** Family segments contain {segment_counts.to_dict()}. **Implication:** demand level and variability require different controls. **Possible action:** use routine replenishment for stable families and shorter review cycles or buffers for volatile families, subject to lead-time and stock data.
-- **Finding:** Store {most_variable_store} has the highest daily-demand CV. **Implication:** network-wide averages may understate local planning uncertainty. **Possible action:** use store-specific staffing and replenishment tolerances.
+- **Finding:** Store {most_variable_store} has the highest daily-demand CV among stores meeting the 90% coverage rule. **Implication:** network-wide averages may understate local planning uncertainty. **Possible action:** use store-specific staffing and replenishment tolerances; treat later-opening stores separately.
 - **Finding:** The highest average network demand occurs on **{peak_day}** and in month **{peak_month}**. **Implication:** capacity requirements are not uniform. **Possible action:** review labor rosters, receiving capacity, and supplier schedules ahead of recurring peaks.
 - **Finding:** Promotion-associated sales ratios vary across families. **Implication:** a single promotion rule is unlikely to fit the portfolio. **Possible action:** prioritize controlled evaluation by category and store rather than interpreting descriptive ratios as causal lift.
 - **Limitation:** Exact safety stocks, reorder points, or service-level gains cannot be calculated without inventory positions, stockouts, lead times, costs, and service targets.
@@ -987,7 +1112,10 @@ if not subset_path.exists():
 subset = pd.read_csv(subset_path, parse_dates=["date"])
 scope = json.loads((OUTPUT_DATA_DIR / "analysis_scope.json").read_text())
         """),
-        md("## Data\n\n### 1. Select representative forecast series"),
+        step(
+            "## Data\n\n### 1. Select representative forecast series",
+            "Forecast usefulness can vary by demand pattern. Selecting high-volume, high-variability, and typical series tests whether one model behaves consistently across different operational situations.",
+        ),
         code("""
 series_daily = subset.groupby(["store_nbr", "family", "date"], as_index=False, observed=True).agg(
     sales=("sales", "sum"), onpromotion=("onpromotion", "sum"), is_holiday=("is_holiday", "max")
@@ -1005,7 +1133,10 @@ selected_series = list(dict.fromkeys(selected_series))
 display(eligible.loc[selected_series])
 print("Selected series:", selected_series)
         """),
-        md("## Results\n\n### 2. Fit baselines, Holt-Winters, and Random Forest"),
+        step(
+            "## Results\n\n### 2. Fit baselines, Holt-Winters, and Random Forest",
+            "Simple baselines establish the minimum standard a more complex method must beat. Chronological validation and shifted features prevent future information from leaking into training.",
+        ),
         code("""
 validation_days = 60
 feature_columns = [
@@ -1016,26 +1147,38 @@ results = []
 forecast_frames = []
 
 for store_nbr, family in selected_series:
+    # Work with one ordered demand series at a time so lags cannot cross stores
+    # or product families.
     series = series_daily.loc[
         series_daily["store_nbr"].eq(store_nbr) & series_daily["family"].eq(family)
     ].sort_values("date").copy()
     series["day_of_week"] = series["date"].dt.dayofweek
     series["month"] = series["date"].dt.month
     featured = add_lag_features(series)
+    # The most recent 60 observations form a chronological holdout. Random
+    # splitting would allow future demand patterns to leak into training.
     train = featured.iloc[:-validation_days].copy()
     validation = featured.iloc[-validation_days:].copy()
 
+    # Operational baselines answer whether a complex model adds useful value.
     predictions = {
         "Naive (lag 1)": validation["lag_1"].to_numpy(),
         "Seasonal naive (lag 7)": validation["lag_7"].to_numpy(),
     }
 
+    # The competition omits a few calendar dates. A simple RangeIndex preserves
+    # the observed daily sequence without inventing missing-day sales values.
+    hw_training_series = pd.Series(
+        train["sales"].to_numpy(), index=pd.RangeIndex(len(train)), name="sales"
+    )
     hw_model = ExponentialSmoothing(
-        train["sales"], trend="add", seasonal="add", seasonal_periods=7,
+        hw_training_series, trend="add", seasonal="add", seasonal_periods=7,
         initialization_method="estimated",
     ).fit(optimized=True, use_brute=False)
-    predictions["Holt-Winters"] = np.clip(hw_model.forecast(validation_days), 0, None)
+    predictions["Holt-Winters"] = np.clip(hw_model.forecast(validation_days).to_numpy(), 0, None)
 
+    # Early rows lack long lags by construction, so only fully observed feature
+    # rows can train the model.
     rf_train = train.dropna(subset=feature_columns)
     rf = RandomForestRegressor(
         n_estimators=200, min_samples_leaf=3, max_features=.8,
@@ -1059,7 +1202,10 @@ model_results = pd.DataFrame(results)
 forecasts = pd.concat(forecast_frames, ignore_index=True)
 display(model_results.sort_values(["store_nbr", "family", "MAE"]))
         """),
-        md("### 3. Compare average performance and inspect the representative forecast"),
+        step(
+            "### 3. Compare average performance and inspect the representative forecast",
+            "Average error summarizes model performance, while the time-series plot shows whether errors cluster around peaks, troughs, or level changes that matter operationally.",
+        ),
         code("""
 model_average = model_results.groupby("model")[["MAE", "RMSE", "RMSLE"]].mean().sort_values("MAE")
 display(model_average)
@@ -1086,14 +1232,20 @@ ax.set(title="Average forecast MAE across selected series", xlabel="Mean absolut
 save_figure(fig, FIGURE_DIR, "forecast_02_model_mae.png")
 plt.show()
         """),
-        md("### 4. Check model consistency across demand series"),
+        step(
+            "### 4. Check model consistency across demand series",
+            "A model that wins only on average may fail for a particular store-family. Series-level winners test whether a universal model choice is justified.",
+        ),
         code("""
 best_by_series = model_results.loc[model_results.groupby(["store_nbr", "family"])["MAE"].idxmin()]
 display(best_by_series[["store_nbr", "family", "model", "MAE", "RMSE", "RMSLE"]])
 print("Best-model counts:")
 display(best_by_series["model"].value_counts())
         """),
-        md("### 5. Save forecast evidence"),
+        step(
+            "### 5. Save forecast evidence",
+            "Saving metrics and validation predictions creates an auditable record for the report and allows future model changes to be compared against the same holdout evidence.",
+        ),
         code("""
 model_results.to_csv(TABLE_DIR / "forecast_model_results.csv", index=False)
 model_average.reset_index().to_csv(TABLE_DIR / "forecast_model_average.csv", index=False)
@@ -1161,10 +1313,14 @@ weekdays = pd.read_csv(TABLE_DIR / "peak_weekdays.csv")
 months = pd.read_csv(TABLE_DIR / "peak_months.csv")
 models = pd.read_csv(TABLE_DIR / "forecast_model_average.csv")
         """),
-        md("## Results\n\n### 1. Executive evidence snapshot"),
+        step(
+            "## Results\n\n### 1. Executive evidence snapshot",
+            "Decision-makers need a compact view of the strongest network, category, timing, variability, and forecasting signals before reading detailed recommendations.",
+        ),
         code("""
 top_store = stores.nlargest(1, "average_daily_sales").iloc[0]
-volatile_store = stores.nlargest(1, "demand_cv").iloc[0]
+comparable_stores = stores.loc[stores["comparable_store"].astype(bool)]
+volatile_store = comparable_stores.nlargest(1, "demand_cv").iloc[0]
 top_family = families.nlargest(1, "total_sales").iloc[0]
 volatile_family = families.nlargest(1, "cv").iloc[0]
 peak_day = weekdays.nlargest(1, "mean").iloc[0]
@@ -1174,7 +1330,7 @@ best_model = models.nsmallest(1, "MAE").iloc[0]
 snapshot = pd.DataFrame(
     [
         ("Highest average-demand store", f"Store {int(top_store.store_nbr)}", top_store.average_daily_sales),
-        ("Most variable store", f"Store {int(volatile_store.store_nbr)}", volatile_store.demand_cv),
+        ("Most variable comparable store", f"Store {int(volatile_store.store_nbr)}", volatile_store.demand_cv),
         ("Largest product family", top_family.family, top_family.total_sales),
         ("Most variable family", volatile_family.family, volatile_family.cv),
         ("Peak average weekday", peak_day.weekday, peak_day["mean"]),
@@ -1185,7 +1341,10 @@ snapshot = pd.DataFrame(
 )
 display(snapshot)
         """),
-        md("### 2. Finding → implication → action register"),
+        step(
+            "### 2. Finding → implication → action register",
+            "This structure prevents recommendations from becoming generic: every action is tied to observed evidence and accompanied by the limitation that constrains the claim.",
+        ),
         code("""
 high_stable = families.loc[families["segment"].eq("High demand / Stable")].nlargest(3, "total_sales")["family"].tolist()
 high_volatile = families.loc[families["segment"].eq("High demand / Volatile")].nlargest(3, "total_sales")["family"].tolist()
@@ -1206,10 +1365,10 @@ insights = pd.DataFrame(
             "Limitation": "CV is a relative historical measure and does not identify the cause of volatility.",
         },
         {
-            "Finding": f"Store {int(volatile_store.store_nbr)} has the highest daily-demand CV ({volatile_store.demand_cv:.3f}).",
+            "Finding": f"Store {int(volatile_store.store_nbr)} has the highest daily-demand CV ({volatile_store.demand_cv:.3f}) among stores meeting the 90% coverage rule.",
             "Operational implication": "Uniform store rules may leave volatile locations under- or over-prepared.",
             "Possible managerial action": "Use store-specific staffing and receiving flexibility, and investigate local calendar or assortment drivers.",
-            "Limitation": "Sales mix and opening history may explain part of the difference.",
+            "Limitation": "CV remains descriptive; sales mix and local operating conditions may explain part of the difference.",
         },
         {
             "Finding": f"Average network demand peaks on {peak_day.weekday} and in month {int(peak_month.month)}.",
@@ -1234,7 +1393,10 @@ insights = pd.DataFrame(
 display(insights)
 insights.to_csv(TABLE_DIR / "managerial_insights.csv", index=False)
         """),
-        md("### 3. Portfolio priorities for presentation"),
+        step(
+            "### 3. Portfolio priorities for presentation",
+            "A single portfolio chart communicates how many categories require routine versus flexible planning and can be reused directly in the MBA presentation.",
+        ),
         code("""
 segment_counts = families["segment"].value_counts().reindex(
     ["High demand / Stable", "High demand / Volatile", "Low demand / Stable", "Low demand / Volatile"], fill_value=0
@@ -1249,7 +1411,7 @@ plt.show()
         code("""
 display(Markdown(f'''
 1. **Differentiate the portfolio.** Stable high-demand families support standardized routines; volatile high-demand families merit closer review and flexibility.
-2. **Plan locally.** Store {int(volatile_store.store_nbr)} illustrates why a single network-wide variability assumption is insufficient.
+2. **Plan locally.** Among stores with adequate lifecycle coverage, Store {int(volatile_store.store_nbr)} illustrates why a single network-wide variability assumption is insufficient. Later-opening stores should be analyzed separately.
 3. **Prepare for recurring peaks.** {peak_day.weekday} and month {int(peak_month.month)} are network-level signals for labor, receiving, replenishment, and supplier coordination reviews.
 4. **Treat promotion evidence carefully.** Use observed differences to prioritize tests and operational coordination, not to claim causal lift.
 5. **Use forecasting as support.** Retain transparent baselines, monitor by series, and connect forecasts to actual planning decisions before expanding complexity.

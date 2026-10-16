@@ -120,6 +120,8 @@ Each notebook answers a different business question and separates evidence from 
 
 Important figures are saved at presentation resolution in `reports/figures/`, and compact supporting tables are saved in `reports/tables/`. Interpretations follow the structure **Finding → Evidence → Operational implication → Possible action → Limitation**, making them reusable in the written report and presentation.
 
+Every numbered notebook step begins with **Why this step is needed** before the code. Non-obvious transformations also include focused comments explaining grain protection, join validation, lifecycle coverage, leakage prevention, and model comparison logic, making the notebooks suitable for a new reader or project viva.
+
 ## Key analytical questions
 
 - How does demand change over time, across weekdays, months, and seasons?
@@ -131,7 +133,7 @@ Important figures are saved at presentation resolution in `reports/figures/`, an
 
 ## Project status
 
-**Phase 1 complete:** repository scaffold, raw-data safeguards, reusable loader, executed data-understanding notebook, and initial quality findings. Cleaning, EDA, operations analysis, forecasting, and managerial synthesis are scaffolded for subsequent phases.
+**Analytical pipeline complete:** all six notebooks have been executed successfully using the seven verified Kaggle source files. The repository now includes a validated analytical subset, 15 presentation-ready figures, compact evidence tables, forecast validation results, and an evidence-linked managerial action register. Raw Kaggle data remains local and excluded from Git.
 
 ## Academic disclaimer
 

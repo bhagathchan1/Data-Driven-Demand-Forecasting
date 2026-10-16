@@ -79,6 +79,8 @@ def inspect_available_files(
 
 def load_dataset(raw_data_dir: Path, filename: str) -> pd.DataFrame:
     """Load one known CSV and parse its date column when applicable."""
+    # Restrict filenames to the documented competition inputs. This prevents a
+    # similarly named CSV from another Downloads project being used by mistake.
     if filename not in EXPECTED_FILES:
         raise ValueError(f"Unexpected dataset name: {filename}")
 
@@ -88,6 +90,7 @@ def load_dataset(raw_data_dir: Path, filename: str) -> pd.DataFrame:
             f"Required input not found: {path}. See data/README.md for setup instructions."
         )
 
+    # Parse dates at ingestion so every downstream notebook uses one data type.
     parse_dates = ["date"] if filename in DATE_FILES else None
     return pd.read_csv(path, parse_dates=parse_dates, low_memory=False)
 

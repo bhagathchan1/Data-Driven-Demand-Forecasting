@@ -10,6 +10,7 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, mean_square
 def forecast_metrics(actual: pd.Series, predicted: pd.Series) -> dict[str, float]:
     """Return nonnegative-demand forecast metrics."""
     actual_values = np.asarray(actual, dtype=float)
+    # Negative forecasts have no direct operational meaning for grocery sales.
     predicted_values = np.clip(np.asarray(predicted, dtype=float), 0, None)
     return {
         "MAE": float(mean_absolute_error(actual_values, predicted_values)),
@@ -23,5 +24,6 @@ def seasonal_naive(history: pd.Series, horizon: int, season_length: int = 7) -> 
     values = np.asarray(history, dtype=float)
     if len(values) < season_length:
         raise ValueError("History is shorter than the requested season length.")
+    # This is an intentionally simple benchmark: next week repeats last week.
     season = values[-season_length:]
     return np.resize(season, horizon)
