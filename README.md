@@ -49,6 +49,8 @@ Forecast accuracy will be considered in terms of decision usefulness. Causal cla
 ```text
 .
 ├── README.md
+├── DATA_SCIENCE_CANVAS.md   # Strategic project canvas (problem, data, models, ops)
+├── Presentation.md          # 18-slide MBA presentation brief
 ├── requirements.txt
 ├── data/
 │   ├── raw/                 # Local Kaggle CSVs; ignored by Git
@@ -64,6 +66,7 @@ Forecast accuracy will be considered in terms of decision usefulness. Causal cla
 ├── src/
 │   ├── data_loader.py
 │   ├── preprocessing.py
+│   ├── eda.py               # Advanced demand classification & shock analytics
 │   ├── features.py
 │   ├── visualization.py
 │   └── forecasting.py
