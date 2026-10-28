@@ -503,6 +503,7 @@ Use these only if the presentation format allows appendix slides beyond the requ
 - Evidence tables: `reports/tables/`
 - Figures: `reports/figures/`
 - Full written analysis: `reports/final_report.md`
+- Detailed workflow: `PROJECT_SUMMARY.md`
 
 ### Appendix C: Suggested viva questions
 
@@ -529,6 +530,29 @@ The subset enables interpretable store-family analysis and forecasting. Transpar
 **Can the project calculate optimal safety stock?**
 
 No. That requires inventory positions, stockouts, lead times, service targets, costs, and supplier constraints, none of which are available in the competition data.
+
+### Appendix D: Advanced EDA slides
+
+**D1 — Store–family demand regularity**
+
+- Visual: `reports/figures/eda_09_demand_classification.png`
+- Evidence: 1,782 store–family series; 630 Smooth, 593 Intermittent, 324 Lumpy, and 235 Erratic.
+- Message: forecast testing and review cadence should differ by series pattern.
+- Caveat: ADI/CV² categories do not determine safety stock or order quantities.
+
+**D2 — Semi-month boundary pattern**
+
+- Visual: `reports/figures/eda_10_payday_quincena_effect.png`
+- Evidence: the defined 15th/month-end window averages 4.52% higher network sales; Personal Care, Cleaning, and Grocery I show positive descriptive differences.
+- Message: semi-month dates deserve local planning review.
+- Caveat: the comparison does not control for weekday, holidays, trend, or promotions and is not a causal payday effect.
+
+**D3 — Structural shock and category co-movement**
+
+- Visuals: `reports/figures/eda_11_earthquake_impact.png` and `reports/figures/eda_12_family_correlation_heatmap.png`
+- Evidence: equal 30-day pre/post average daily sales are +64.91% in Manabí and -38.77% in Santa Elena; cross-family correlations use daily log-sales changes.
+- Message: scenario planning should allow regional divergence and simultaneous category pressure.
+- Caveat: pre/post changes and correlations are observational and may reflect common shocks or concurrent factors.
 
 ---
 

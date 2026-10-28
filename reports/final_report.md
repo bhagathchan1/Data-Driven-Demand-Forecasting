@@ -14,6 +14,7 @@ The main conclusions are:
 - Store lifecycle matters. Seven stores have less than 90% transaction or active-sales coverage and are therefore separated from mature-store variability comparisons. Among comparable stores, Store 25 has the highest daily-demand coefficient of variation at **0.702**.
 - Promotions and holidays are associated with higher observed sales, but the evidence is not causal. Holiday store-days average **19.1% more sales** than non-holiday store-days, and promoted/non-promoted ratios vary materially by family.
 - Forecasting provides useful but series-dependent support. A rolling one-day Random Forest has the lowest average MAE across three selected series (**414.4** versus **718.6** for weekly seasonal naive), while Holt-Winters performs best for one of the three series.
+- Advanced diagnostics reinforce the need for differentiation. Across 1,782 store–family series, **630 are Smooth, 593 Intermittent, 324 Lumpy, and 235 Erratic** under the ADI/CV² screening framework. Semi-month boundary dates average **4.52%** higher network sales before calendar controls.
 
 The central managerial implication is to avoid one network-wide planning rule. Stable high-volume families can support regular routines, while volatile important categories, recurring peaks, promotion periods, and high-variability stores require shorter review cycles and more operating flexibility.
 
@@ -193,6 +194,47 @@ The chart shows opposite broad trends, but this is not decision-ready evidence o
 
 **Operations meaning:** oil price should remain exploratory context unless additional analysis establishes a stable, time-aware relationship.
 
+### 5.10 Store–family demand intermittency
+
+The Syntetos–Boylan ADI/CV² framework was applied separately to all **1,782 store–family time series**, avoiding the methodological error of pooling multiple stores into one sequence.
+
+| Demand category | Store–family series | Interpretation |
+|---|---:|---|
+| Smooth | 630 | Frequent positive demand with lower positive-demand variation |
+| Intermittent | 593 | Less frequent demand with comparatively stable positive quantities |
+| Lumpy | 324 | Less frequent demand with variable positive quantities |
+| Erratic | 235 | Frequent positive demand with high positive-demand variation |
+
+Fifty-three store–family series contain no positive sales in the historical window. They are retained and flagged rather than forced into an ordinary forecast model.
+
+![Store-family demand classification](figures/eda_09_demand_classification.png)
+
+**Operations meaning:** forecast evaluation and review cadence should differ across series. The classification does not determine safety stock or ordering policy because lead time, stock, service, and cost data are unavailable.
+
+### 5.11 Semi-month boundary pattern
+
+The competition context identifies the 15th and month-end as potentially relevant pay-cycle dates. Using those dates plus the following day as a descriptive window, average network sales are **4.52% higher** than on other dates. Among larger or operationally important families, observed differences include Personal Care **9.66%**, Cleaning **6.40%**, Grocery I **5.81%**, and Beverages **3.41%**.
+
+![Semi-month boundary sales association](figures/eda_10_payday_quincena_effect.png)
+
+This comparison does not control for weekday, holidays, trend, promotions, or month mix. It is therefore a planning signal to test, not a causal payday estimate.
+
+### 5.12 April 2016 structural-shock window
+
+Equal 30-day windows before and from 16 April 2016 were compared using average daily sales. Manabí is **64.91% higher** in the post window and Guayas **24.92% higher**, while Santa Elena is **38.77% lower**. The regional divergence suggests that exceptional events can create very different local operating conditions.
+
+![April 2016 pre/post comparison](figures/eda_11_earthquake_impact.png)
+
+The pre/post design does not isolate causality. Seasonality, trend, promotions, closures, relief activity, and other concurrent changes may contribute.
+
+### 5.13 Cross-family co-movement
+
+Correlations were calculated on **daily log-sales changes**, not raw sales levels, and each date's cross-family mean change was removed. This reduces spurious correlation from shared growth and common network movement so the matrix emphasizes relative category changes.
+
+![Cross-family correlation of daily log-sales changes](figures/eda_12_family_correlation_heatmap.png)
+
+**Operations meaning:** related planning workloads may peak together, but correlation does not establish product complementarity, substitution, or cross-selling effects.
+
 ## 6. Operations Analysis
 
 ### 6.1 Demand and variability segmentation
@@ -311,6 +353,9 @@ These are planning implications, not an inventory optimization result. Safety st
 6. Forecast evaluation covers three series and one 60-day historical holdout.
 7. The Random Forest and Holt-Winters results reflect different forecast-update procedures.
 8. Results describe one retailer and historical period and may not generalize without revalidation.
+9. Demand intermittency categories are historical screening labels, not inventory-policy prescriptions.
+10. Semi-month and earthquake comparisons are uncontrolled observational windows.
+11. Cross-family correlations may reflect common network shocks rather than direct category relationships.
 
 ## 11. Conclusion
 
@@ -322,6 +367,7 @@ The strongest evidence supports differentiated operations:
 - prepare for recurring weekend and year-end peaks;
 - compare mature stores separately from opening or incomplete-history stores;
 - coordinate promotions with operating capacity while avoiding causal claims from descriptive ratios;
+- treat semi-month dates and exceptional events as scenario-planning signals that require local validation;
 - use forecasts alongside transparent baselines and monitor performance by series.
 
 The project demonstrates how data science can support Operations Management without reducing the work to a model leaderboard. The analytical value lies in connecting trustworthy evidence to planning choices and clearly stating where additional operational data is required.
@@ -334,5 +380,6 @@ The project demonstrates how data science can support Operations Management with
 - Presentation-ready figures: `reports/figures/`
 - Reusable code: `src/`
 - Raw data setup instructions: `data/README.md`
+- Detailed step-by-step project summary: `PROJECT_SUMMARY.md`
 
 All figures and numerical statements in this report are derived from the locally verified Kaggle competition files. Raw competition files are excluded from Git.

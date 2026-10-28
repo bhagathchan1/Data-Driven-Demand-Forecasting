@@ -102,6 +102,54 @@ Results are descriptive unless a stronger design supports causal interpretation.
 
 **Limitations:** Promotion targeting, seasonality, store mix, and event timing confound these comparisons. They do not estimate causal lift.
 
+### Demand regularity differs across store–family series
+
+**Finding:** The portfolio contains substantial smooth, intermittent, lumpy, and erratic demand at store–family level.
+
+**Evidence:** Among 1,782 store–family series, the ADI/CV² screen classifies 630 as Smooth, 593 as Intermittent, 324 as Lumpy, and 235 as Erratic. Fifty-three series have no positive historical sales.
+
+**Operational implication:** One forecast-evaluation rule or review cadence is unlikely to fit every series.
+
+**Potential action:** Evaluate forecast methods and review frequency by demand-pattern group, keeping all-zero and intermittent series visible as exceptions.
+
+**Limitations:** These historical classifications do not specify safety stock, reorder points, or service targets.
+
+### Semi-month dates are a descriptive planning signal
+
+**Finding:** Network sales are higher around the 15th and month-end in the defined comparison window.
+
+**Evidence:** Average daily network sales are 4.52% higher on the 15th, month-end, and their following days than on other dates. Personal Care, Cleaning, and Grocery I show positive family-level differences.
+
+**Operational implication:** Semi-month dates may deserve explicit review in staffing, receiving, and replenishment calendars.
+
+**Potential action:** Validate the pattern by store and year and test it after controlling for weekday, holidays, trend, and promotions.
+
+**Limitations:** This is not a causal payday estimate.
+
+### The April 2016 event window shows regional divergence
+
+**Finding:** Sales changes in equal 30-day pre/post windows differ sharply by province.
+
+**Evidence:** Average daily sales are 64.91% higher in Manabí and 24.92% higher in Guayas after 16 April 2016, while Santa Elena is 38.77% lower.
+
+**Operational implication:** Exceptional events can create simultaneous surges, declines, and regional logistics differences.
+
+**Potential action:** Maintain event-response scenarios and monitor local demand and store availability instead of applying one national adjustment.
+
+**Limitations:** The pre/post comparison is temporally associated with the event and does not control for concurrent factors.
+
+### Category changes co-move, but common shocks remain plausible
+
+**Finding:** Several families have highly correlated daily log-sales changes.
+
+**Evidence:** The matrix uses daily log-sales changes after removing the daily cross-family common component; the remaining positive and negative relationships show relative category co-movement.
+
+**Operational implication:** Workload and replenishment pressure may peak across multiple categories at once.
+
+**Potential action:** Review shared capacity constraints during common peak dates.
+
+**Limitations:** Correlation does not establish complementarity, substitution, or causation and may reflect shared calendar or network shocks.
+
 ## Phase 4 — Operations analysis
 
 ### Demand level and variability require different controls

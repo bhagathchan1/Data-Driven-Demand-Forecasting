@@ -99,6 +99,14 @@ def plot_demand_classification(
     """
     fig, ax = plt.subplots(figsize=(12, 7))
 
+    plot_df = classification_df.copy()
+    finite_adi = plot_df.loc[np.isfinite(plot_df["adi"]), "adi"]
+    clipped_adi = max(finite_adi.max() * 1.08, 2.5) if not finite_adi.empty else 2.5
+    plot_df["plot_adi"] = plot_df["adi"].replace([np.inf, -np.inf], clipped_adi)
+    positive_cv2 = plot_df.loc[plot_df["cv2"].gt(0), "cv2"]
+    cv2_floor = max(positive_cv2.min() / 2, 1e-4) if not positive_cv2.empty else 1e-4
+    plot_df["plot_cv2"] = plot_df["cv2"].clip(lower=cv2_floor)
+
     category_colors = {
         "Smooth": PROJECT_COLORS[1],        # Teal
         "Intermittent": PROJECT_COLORS[0],  # Navy
@@ -107,14 +115,14 @@ def plot_demand_classification(
     }
 
     for cat, color in category_colors.items():
-        subset = classification_df[classification_df["demand_category"] == cat]
+        subset = plot_df[plot_df["demand_category"] == cat]
         if not subset.empty:
             ax.scatter(
-                subset["adi"],
-                subset["cv2"],
+                subset["plot_adi"],
+                subset["plot_cv2"],
                 c=color,
                 label=f"{cat} (n={len(subset)})",
-                s=70,
+                s=28 if len(classification_df) > 100 else 70,
                 alpha=0.85,
                 edgecolors="white",
                 linewidth=0.8,
@@ -125,34 +133,48 @@ def plot_demand_classification(
     ax.axhline(0.49, color="gray", linestyle="--", linewidth=1.2, alpha=0.7)
 
     # Annotate quadrant labels in corners
-    x_max = max(classification_df["adi"].max() * 1.05, 2.5)
-    y_max = max(classification_df["cv2"].max() * 1.05, 1.5)
+    x_max = max(plot_df["plot_adi"].max() * 1.05, 2.5)
+    y_max = max(plot_df["plot_cv2"].max() * 1.15, 1.5)
 
-    ax.text(1.02, 0.05, "SMOOTH\n(Regular, Low Var)", fontsize=9, color="#2a9d8f", fontweight="bold")
-    ax.text(1.35, 0.05, "INTERMITTENT\n(Sporadic, Low Var)", fontsize=9, color="#1f4e79", fontweight="bold")
-    ax.text(1.02, y_max * 0.85, "ERRATIC\n(Regular, High Var)", fontsize=9, color="#f4a261", fontweight="bold")
-    ax.text(1.35, y_max * 0.85, "LUMPY\n(Sporadic, High Var)", fontsize=9, color="#e76f51", fontweight="bold")
-
-    # Annotate prominent product families if 'family' column is present
-    if "family" in classification_df.columns:
-        for _, row in classification_df.iterrows():
-            if row["adi"] > 1.32 or row["cv2"] > 0.49 or row["zero_sales_pct"] > 20:
+    # Annotate only a small number of extreme series to preserve readability.
+    if "family" in classification_df.columns and len(classification_df) <= 100:
+        annotation_rows = plot_df.nlargest(
+            min(10, len(plot_df)), "zero_sales_pct"
+        )
+        for _, row in annotation_rows.iterrows():
+            if row["adi"] > 1.32 or row["cv2"] > 0.49:
+                label = row["family"]
+                if "store_nbr" in row.index:
+                    label = f"S{int(row['store_nbr'])} — {label}"
                 ax.annotate(
-                    row["family"],
-                    (row["adi"], row["cv2"]),
+                    label,
+                    (row["plot_adi"], row["plot_cv2"]),
                     xytext=(5, 4),
                     textcoords="offset points",
                     fontsize=8,
                     alpha=0.85,
                 )
 
+    ax.set_xscale("log")
+    ax.set_yscale("log")
     ax.set_xlim(0.95, x_max)
-    ax.set_ylim(-0.05, y_max)
+    ax.set_ylim(cv2_floor, y_max)
     ax.set(
-        title="Demand Pattern Classification (Syntetos-Boylan / Croston Framework)",
+        title="Store–Family Demand Pattern Classification",
         xlabel="Average Demand Interval (ADI) — Spacing between non-zero days",
         ylabel="Squared Coefficient of Variation (CV²) of non-zero demand size",
     )
+    if np.isinf(classification_df["adi"]).any():
+        ax.text(
+            0.99,
+            0.01,
+            "All-zero series are clipped at the right edge; zero CV² is shown at the lower plot boundary.",
+            transform=ax.transAxes,
+            ha="right",
+            va="bottom",
+            fontsize=8,
+            color="dimgray",
+        )
     ax.legend(loc="upper right", frameon=True)
     fig.tight_layout()
 
@@ -198,8 +220,8 @@ def plot_payday_comparison(
 
     ax.axvline(0, color="black", linestyle="-", linewidth=0.8)
     ax.set(
-        title=f"Semi-Monthly Payday Surge (Quincena) — Top {top_n} Families by Lift %",
-        xlabel="Average Sales Lift on Paydays vs Regular Days (%)",
+        title=f"Semi-Month Boundary Association — Top {top_n} Families",
+        xlabel="Observed Mean-Sales Difference vs Other Days (%)",
         ylabel="Product Family",
     )
     fig.tight_layout()
@@ -247,7 +269,7 @@ def plot_earthquake_impact(
     axes[1].barh(notable_families.index, notable_families["sales_change_pct"], color=colors_fam, alpha=0.9)
     axes[1].axvline(0, color="black", linestyle="--", linewidth=0.8)
     axes[1].set(
-        title="Category Shift (Surging Essentials vs Discretionary)",
+        title="Largest Category Changes in the 30-Day Comparison",
         xlabel="Sales Change (%)",
         ylabel="Product Family",
     )
@@ -283,7 +305,7 @@ def plot_correlation_heatmap(
         sub_corr = corr_matrix.iloc[:12, :12]
 
     fig, ax = plt.subplots(figsize=(10, 8))
-    cax = ax.imshow(sub_corr, cmap="YlGnBu", aspect="auto", vmin=0, vmax=1)
+    cax = ax.imshow(sub_corr, cmap="RdBu_r", aspect="auto", vmin=-1, vmax=1)
     fig.colorbar(cax, ax=ax, label="Pearson Correlation")
 
     labels = list(sub_corr.columns)
@@ -299,7 +321,7 @@ def plot_correlation_heatmap(
             text_color = "white" if val > 0.65 else "black"
             ax.text(j, i, f"{val:.2f}", ha="center", va="center", color=text_color, fontsize=8)
 
-    ax.set_title("Cross-Category Demand Co-Movement Correlation Heatmap", pad=15)
+    ax.set_title("Cross-Category Correlation of Daily Log-Sales Changes", pad=15)
     fig.tight_layout()
 
     if output_dir:

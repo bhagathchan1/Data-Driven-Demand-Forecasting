@@ -1,119 +1,84 @@
 # Data Science Project Canvas
 ## Demand Analysis and Forecasting for Grocery Retail Operations
 
-*An MBA Operations Management & Data Science Project Canvas*
+*MBA Operations Management project supported by data science*
 
----
-
-## 1. Visual Canvas Overview
+## 1. Visual canvas
 
 ```mermaid
 flowchart TD
-    subgraph Business_Context["1. Business Problem & Objectives"]
-        B1["Goal: Inform store staffing, replenishment & promo planning"]
-        B2["Stakeholders: Store Ops, Category Planners, Supply Chain"]
-        B3["Core Question: How can historical data support retail operations?"]
-    end
-
-    subgraph Data_Foundations["2. Data & Ingestion Architecture"]
-        D1["Fact Table: train.csv (3M rows, daily store x family sales)"]
-        D2["Store Master: stores.csv (54 stores, 16 states, 17 clusters)"]
-        D3["Context: transactions.csv, holidays_events.csv, oil.csv"]
-        D4["Cleaning: Validation merges (many-to-one), oil ffill/bfill, scope joins"]
-    end
-
-    subgraph Analytics_Engine["3. Feature Engineering & Modeling"]
-        F1["Features: Lags (1, 7, 14, 28), Rolling (7, 28-day), Calendar"]
-        F2["Domain Signals: Quincena Paydays, Multi-scope Holidays, Promo Intensity"]
-        M1["Baselines: Moving Average (28d), Seasonal Naive (7d)"]
-        M2["ML Models: Ridge/Linear Regression, Random Forest Regressor"]
-    end
-
-    subgraph Decision_Execution["4. Evaluation & Operational Deployment"]
-        E1["Metrics: MAE (units), RMSE (penalize outliers), RMSLE (relative error)"]
-        E2["Validation: Leakage-safe chronological backtesting"]
-        O1["Operations: Differentiated inventory reviews (Smooth vs Lumpy)"]
-        O2["Staffing: Quincena & weekend labor adjustments"]
-    end
-
-    subgraph Governance_Constraints["5. Constraints & Monitoring"]
-        C1["Boundary: Observed sales != Unconstrained demand (no stockout data)"]
-        C2["Inference: Descriptive associations != Causal effects"]
-        C3["Monitoring: Tracking volume shifts, macroeconomic shocks & drift"]
-    end
-
-    Business_Context --> Data_Foundations
-    Data_Foundations --> Analytics_Engine
-    Analytics_Engine --> Decision_Execution
-    Decision_Execution --> Governance_Constraints
+    B["Business question: How can historical sales and operational factors support retail planning?"]
+    D["Data: 3.0M sales rows, 54 stores, 33 families, transactions, stores, events, oil"]
+    Q["Quality: keys, grain, missingness, lifecycle coverage, scope-aware joins"]
+    E["Evidence: trend, calendar, stores, families, promotions, holidays, traffic, shocks"]
+    O["Operations: variability, intermittency, store profiles, peak periods"]
+    F["Forecast support: Naive, Seasonal Naive, Holt-Winters, Random Forest"]
+    A["Actions: differentiated review, peak preparation, pilot monitoring"]
+    L["Limits: sales ≠ unconstrained demand; no inventory, cost, lead-time, or service data"]
+    B --> D --> Q --> E --> O --> F --> A --> L
 ```
 
----
+## 2. Detailed canvas
 
-## 2. Detailed Canvas Specification
+| Canvas block | Project implementation |
+|---|---|
+| **Business problem** | Grocery operations must plan staffing, receiving, shelf replenishment, promotions, and supplier coordination under changing demand. The project identifies patterns that can inform planning; it does not observe stockouts, waste, labor performance, or financial outcomes. |
+| **Stakeholders** | Store operations, category planning, replenishment, supply-chain coordination, and management. |
+| **Core decisions supported** | Which stores, categories, and periods deserve closer planning review? Which demand series are stable, intermittent, or volatile? Do forecasts add value beyond transparent baselines? |
+| **Data source** | Kaggle Store Sales competition: 3,000,888 training rows from 2013-01-01 to 2017-08-15, 54 stores, 33 families, plus store, transaction, holiday/event, oil, test, and submission files. |
+| **Core grain** | One `date × store_nbr × family` row. The complete panel has 1,684 × 54 × 33 rows and a unique composite key. |
+| **Quality controls** | File whitelist, datetime validation, duplicates, nulls, invalid values, zero sales, robust extremes, key integrity, merge-cardinality checks, store lifecycle coverage, and post-merge row-count validation. |
+| **Missing values** | Oil is aligned to a daily calendar and filled through time with an imputation flag. Missing transactions remain missing. Zero sales remain observed values because the dataset cannot distinguish no demand, closure, or unavailable stock. |
+| **Holiday integration** | Non-transferred national events apply to all stores; regional events match state; local events match city. This prevents a many-to-many date-only join. |
+| **Calendar features** | Year, month, quarter, ISO week, weekday, day of month, weekend flag. |
+| **Forecast features** | Lags 1, 7, 14, and 28; shifted rolling means 7 and 28; calendar, promotion, and holiday fields. All rolling features use prior information only. |
+| **Descriptive domain signals** | Promotion state, scope-aware holidays, transaction traffic, oil-price context, semi-month boundary proxy, and an equal-window April 2016 event comparison. These are associations, not causal effects. |
+| **Core EDA** | Network trend, calendar seasonality, store ranking and variability, store type/cluster/geography, family contribution and variability, store–family heatmap, promotions, holidays, transactions, and oil. |
+| **Advanced EDA** | ADI/CV² classification of 1,782 store–family series; semi-month boundary comparison; equal 30-day pre/post event window; cross-family correlation of daily log-sales changes after removing the daily common component. |
+| **Operations segmentation** | Median demand and CV create high/low demand × stable/volatile family groups. Store lifecycle coverage is separated from mature-store variability. |
+| **Forecast procedures** | One-day Naive, seven-day Seasonal Naive, additive Holt-Winters with weekly seasonality, and Random Forest using leakage-safe features. |
+| **Validation** | Chronological 60-day holdout for three representative series. Random Forest is a rolling one-day procedure; Holt-Winters is a fixed 60-day path, so update schedules are not identical. |
+| **Metrics** | MAE for absolute error, RMSE for larger-error sensitivity, and RMSLE for relative-error perspective. Negative predictions are clipped to zero. |
+| **Best average result** | Random Forest: MAE 414.41, RMSE 592.87, RMSLE 0.258. Holt-Winters is best for Store 32–Frozen Foods, so no universal winner is claimed. |
+| **Managerial output** | Finding → Operational implication → Possible action → Limitation. Actions focus on differentiated review, local validation, recurring peak preparation, and pilot monitoring. |
 
-| Canvas Block | Focus Area | Detailed Specification & Project Implementation |
+## 3. Operations decision matrix
+
+| Demand profile | Planning interpretation | Qualified action |
 |---|---|---|
-| **1. Business Problem & Value Proposition** | **Problem Statement** | Grocery retailers face erratic daily demand driven by day-of-week cycles, bi-weekly paydays (*Quincenas*), promotions, and external shocks. Inaccurate planning leads to stockouts in high-velocity categories, excessive perishable waste, and staffing misallocations during weekend peaks. |
-| | **Value Proposition** | Move store and category management from intuition-driven guesswork to an evidence-backed, segmented planning framework. Differentiate replenishment and staffing policies between stable high-volume essentials and highly volatile categories. |
-| **2. Key Stakeholders & Decision Context** | **Primary Stakeholders** | • **Store Operations Managers:** Shift staffing, checkout capacity, weekend labor planning.<br>• **Category & Inventory Planners:** Replenishment cycle length, buffer stock sizing, promotional staging.<br>• **Supply Chain Logistics:** Distribution center dispatch schedules and regional truck deliveries.<br>• **Executive Leadership (COO / VP Retail):** Capital allocation across store types and format performance evaluation. |
-| | **Decisions Supported** | • *Staffing:* How many checkout and stocking staff are needed on Friday–Sunday and Quincenas?<br>• *Replenishment:* Which categories allow weekly replenishment vs. daily review?<br>• *Promotions:* Which categories respond with volume lift vs. baseline cannibalization? |
-| **3. Current Baseline & Heuristics** | **Existing Practices** | • Static rule-of-thumb ordering (e.g., ordering identical quantities each Tuesday).<br>• Uniform safety stock percentages across all 33 categories without considering volatility ($CV$).<br>• Reactionary labor scheduling with weekend bottlenecking and understaffed checkout lines. |
-| | **Analytical Benchmark** | • **28-Day Moving Average:** Naive trailing mean of past demand.<br>• **7-Day Seasonal Naive:** Assuming this Monday replicates last Monday ($y_{t} = y_{t-7}$). Any viable machine learning model must beat this benchmark to justify operational complexity. |
-| **4. Data Sources, Grain & Ingestion** | **Primary Fact Table** | `train.csv`: 3,000,888 historical rows spanning Jan 1, 2013 to Aug 15, 2017.<br>**Grain:** Exactly 1 row per `date` × `store_nbr` × `family` (1,684 dates × 54 stores × 33 families). |
-| | **Contextual Master Tables** | • `stores.csv`: 54 stores with city, state, store type (A–E), and cluster (1–17).<br>• `transactions.csv`: Daily foot traffic / checkout transactions per store (83,488 rows).<br>• `holidays_events.csv`: 350 events classified into National, Regional, and Local scope.<br>• `oil.csv`: Daily WTI crude price (macroeconomic proxy for Ecuadorian purchasing power). |
-| | **Data Ingestion Rules** | Controlled file whitelist (`EXPECTED_FILES`), automated datetime parsing upon load, and strict file existence profiling before analysis execution. |
-| **5. Data Preparation & Quality Assurance** | **Missing Value Strategy** | • *Oil:* Forward-filled across non-trading weekends/holidays with explicit audit indicator `oil_value_missing`.<br>• *Transactions:* Left-joined; missing records explicit (store closures or new store ramp-ups).<br>• *Sales Zeros:* 31.30% of records are zero sales; analyzed via Syntetos-Boylan intermittency rather than treated as missing data. |
-| | **Integrity & Grain Guards** | • All joins strictly validated with `validate="many_to_one"`.<br>• Assertion checks verify total row count matches exactly 3,000,888 and composite key `(date, store_nbr, family)` is unique. |
-| **6. Feature Engineering & Domain Signals** | **Calendar & Seasonality** | Downcasted integer date attributes: `year`, `month`, `quarter`, `week`, `day_of_week`, `day_of_month`, `is_weekend`. |
-| | **Lag & Rolling Dynamics** | Chronologically leakage-safe features computed strictly within `(store_nbr, family)` series:<br>• `lag_1` (yesterday's momentum)<br>• `lag_7` (day-of-week weekly seasonality)<br>• `lag_14` (bi-weekly replenishment cycle)<br>• `lag_28` (monthly baseline)<br>• `rolling_mean_7` & `rolling_mean_28` (shifted by 1 period to prevent lookahead bias). |
-| | **Domain & Event Signals** | • *Quincena Paydays:* Flags for the 15th and month-end wage payouts (+1 day shopping window).<br>• *Geographic Holiday Scope:* Distinct flags for national, state-level regional, and city-level local holidays (excluding transferred events).<br>• *Promotion Intensity:* Log-transformed active promotional item count ($\log(1 + \text{onpromotion})$). |
-| **7. Modeling Strategy & Formulations** | **Baseline Models** | 1. **28-Day Moving Average** (trend baseline)<br>2. **7-Day Seasonal Naive** (cyclical baseline) |
-| | **Supervised ML Models** | 1. **Ridge / Linear Regression with Lags:** Interpretable linear feature weights.<br>2. **Random Forest Regressor:** Non-linear decision trees capturing interactions between calendar, lag momentum, promotions, and store format. |
-| | **Validation Architecture** | Chronological rolling validation window (last 24 months, evaluated over a 16-day forecast horizon matching Kaggle and store replenishment planning cycles). Zero random train/test shuffling. |
-| **8. Evaluation Metrics & Trade-offs** | **Statistical Metrics** | • **MAE (Mean Absolute Error):** Direct, interpretable measurement in units sold. Primary operational metric for inventory replenishment.<br>• **RMSE (Root Mean Squared Error):** Heavily penalizes large forecasting misses, highlighting severe stockout or overstock risks.<br>• **RMSLE (Root Mean Squared Log Error):** Evaluates relative percentage deviations without being dominated by high-volume categories. |
-| | **Post-Processing Rule** | Demand cannot be negative: all model predictions are clipped at zero ($\hat{y} = \max(0, y_{\text{pred}})$). |
-| | **Operational Trade-offs** | Under-forecasting risks out-of-stock lost sales and customer dissatisfaction; over-forecasting perishable items (Produce, Dairy, Meats) causes spoilage and margin erosion. |
-| **9. Operational Deployment & Workflow** | **Portfolio Segmentation** | • **Smooth Demand:** Grocery I, Beverages, Cleaning (Standard automated moving averages / ML; weekly replenishment cadence).<br>• **Erratic Demand:** Produce, Meats (High volume, high volatility; daily replenishment review, dynamic safety buffers).<br>• **Intermittent / Lumpy Demand:** Books, Lawnmowers (Croston-style replenishment, pull-based ordering rather than push-based forecasting). |
-| | **Store Tiering** | High-volume flagships (Stores 44, 45, 47) receive dedicated logistics lanes, whereas high-variability stores (Store 25) maintain agile buffer stocks. |
-| | **Staffing Workflows** | Saturday/Sunday checkout staffing increased by ~40% to match weekend peak volume (825k vs 500k midweek units); store labor augmented on 15th and 30th for Quincena rushes. |
-| **10. Risks, Assumptions & Caveats** | **Observed Sales $\neq$ Demand** | The dataset records *censored sales*, not true customer demand. If an item was stocked out or a store closed, demand was strictly positive but recorded as zero. |
-| | **Descriptive $\neq$ Causal** | Promotions, oil prices, and transactions are observed associations. Higher sales on promoted days does not prove promotion alone caused the lift (selection bias). |
-| | **Mixed Physical Units** | The `sales` metric aggregates kilograms, liters, count packs, and apparel into a single number. Aggregates represent activity volume, not revenue, margin, or pallet weight. |
-| **11. Monitoring, Drift & Continuous Learning** | **Drift Triggers** | • **Structural Shocks:** Natural disasters (e.g., April 2016 Manabí earthquake causing sudden surge in essentials and drop in discretionary goods).<br>• **Macroeconomic Trends:** Sustained crude oil drops affecting national purchasing power.<br>• **Calendar Shifts:** Floating holidays (Carnival, Easter) shifting across weeks year-over-year. |
-| | **Model Retraining Schedule** | Monthly batch retraining with updated lags and dynamic rolling recalibration. |
+| High demand / Stable | Large flow with comparatively predictable history | Candidate for regular planning cycles with exception monitoring |
+| High demand / Volatile | Commercially important and uncertain | Candidate for shorter review cycles, scenarios, and closer supplier coordination |
+| Low demand / Stable | Smaller flow with comparatively stable history | Candidate for lower-frequency review where service risk permits |
+| Low demand / Volatile | Small flow with unstable percentage changes | Use exception review and avoid overreacting to noisy rates |
+| Intermittent / Lumpy store–family series | Positive sales are infrequent and/or variable | Test intermittent-demand methods and monitor all-zero series separately |
 
----
+These actions do not specify order quantities, safety stocks, or labor levels.
 
-## 3. Operations Management Decision Matrix
+## 4. Evidence highlights
 
-```
-                      DEMAND UNCERTAINTY (CV)
-                 Low Volatility      High Volatility
-               +-------------------+-------------------+
-          High | ROUTINE AUTOMATION| AGILE REPLENISH   |
-               | - Grocery I       | - Produce, Meats  |
-        VOLUME | - Beverages       | - High Promo Items|
-               | Policy: Weekly    | Policy: Daily     |
-               | replenishment,    | review, dynamic   |
-               | standard safety   | buffer stocks,    |
-               | stocks            | supplier sync     |
-               +-------------------+-------------------+
-           Low | LOW TOUCH / LEAN  | EXCEPTION-BASED   |
-               | - Hardware        | - Books, Seasonal |
-        VOLUME | - Baby Care       | - School Supplies |
-               | Policy: Min/Max   | Policy: Make/Order|
-               | reorder points,   | to order, Croston |
-               | low buffer capital| intermittency     |
-               +-------------------+-------------------+
-```
+- Grocery I, Beverages, Produce, and Cleaning contribute approximately **72.7%** of observed family-level sales.
+- Average network demand is highest on **Sunday (825.2k)** and **Saturday (772.2k)**; December is the highest month at **808.6k** average daily sales.
+- Across 1,782 store–family series: **630 Smooth, 593 Intermittent, 324 Lumpy, and 235 Erratic**.
+- The semi-month boundary proxy is associated with **4.52%** higher average network sales before calendar controls.
+- Manabí average daily sales are **64.91%** higher in the equal 30-day post-event window; Santa Elena is **38.77%** lower. This is temporal association.
+- Random Forest has the lowest average MAE, but Holt-Winters wins one of the three selected series.
 
----
+## 5. Governance and limitations
 
-## 4. Summary Checklist for Business Review
+- Observed sales may be constrained and are not unconstrained demand.
+- Mixed sales units are not revenue, margin, weight, or handling effort.
+- Promotion, holiday, semi-month, transaction, oil, and event analyses are observational.
+- Correlation does not establish complementarity, substitution, or causation.
+- The dataset cannot calculate inventory optimization or financial improvement.
+- A production retraining schedule, labor quantity, or replenishment cadence requires additional operating constraints and a live pilot.
 
-- [x] **Clear business question defined** (Operations & demand planning, not just a Kaggle competition rank).
-- [x] **No ungrounded inventory claims** (Explicitly recognizes absence of stockout, inventory, and margin data).
-- [x] **Leakage-safe feature engineering** (Strict chronological sorting and shift-1 rolling statistics).
-- [x] **Multi-tiered benchmarks established** (Moving Average & Seasonal Naive compared against ML).
-- [x] **Actionable operational recommendations** (Quincena staffing, weekend scheduling, portfolio segmentation).
+## 6. Completion checklist
+
+- [x] Broad Operations Management question defined.
+- [x] All seven source files audited.
+- [x] Raw data preserved and excluded from Git.
+- [x] Scope-aware, cardinality-validated integration completed.
+- [x] Full network and justified detailed-scope analysis completed.
+- [x] Leakage-safe chronological forecast comparison completed.
+- [x] Findings linked to implications, actions, and limitations.
+- [x] Six notebooks executed top-to-bottom without errors.

@@ -886,17 +886,17 @@ plt.show()
         """),
         step(
             "### 10. Demand pattern classification (Syntetos-Boylan / Croston)",
-            "Retail demand varies not only by volume but by regularity. Categorizing demand streams into Smooth, Intermittent, Erratic, and Lumpy quadrants guides the choice of inventory policy and forecasting models.",
+            "Retail demand varies not only by volume but by regularity. Each store–family series is classified separately so that pooling stores does not create an artificial time sequence. The four quadrants are screening indicators for forecasting and review cadence, not inventory-policy prescriptions.",
         ),
         code("""
-demand_classification = classify_demand_patterns(panel, group_cols=["family"])
+demand_classification = classify_demand_patterns(panel, group_cols=["store_nbr", "family"])
 display(demand_classification.sort_values(["demand_category", "adi"]))
 fig = plot_demand_classification(demand_classification, output_dir=FIGURE_DIR)
 plt.show()
         """),
         step(
             "### 11. Semi-monthly payday dynamics (Quincenas: 15th & month-end)",
-            "In Ecuador, formal wage disbursements occur on the 15th and at month-end. Identifying liquidity-driven surges helps stores schedule stock replenishment and checkout staffing.",
+            "The competition context identifies the 15th and month-end as potentially relevant pay-cycle dates. This descriptive comparison uses the 15th/month-end plus the following day as a semi-month boundary proxy. It does not control for weekday, holidays, trend, or promotion mix and therefore is not a causal payday effect.",
         ),
         code("""
 payday_results = analyze_payday_effects(panel)
@@ -907,7 +907,7 @@ plt.show()
         """),
         step(
             "### 12. Structural shock analysis: April 16, 2016 earthquake",
-            "A major Mw 7.8 earthquake hit Ecuador on April 16, 2016. Analyzing pre- vs post-earthquake shifts across epicenter provinces (Manabí, Esmeraldas) vs non-impacted areas reveals disaster response patterns and category demand shifts.",
+            "The dataset period includes the April 16, 2016 Ecuador earthquake. Equal 30-day pre/post windows are compared using average daily sales by province and family. Changes are temporally associated with the event but can also reflect trend, seasonality, promotions, closures, or relief activity.",
         ),
         code("""
 quake_results = analyze_earthquake_impact(panel, window_days=30)
@@ -918,7 +918,7 @@ plt.show()
         """),
         step(
             "### 13. Cross-category demand correlation & co-movement",
-            "Evaluating cross-category correlation identifies complementary product categories that experience simultaneous demand spikes versus independent categories.",
+            "Correlations use daily log-sales changes after removing each date's cross-family mean change. This reduces shared trends and common network movement so the heatmap emphasizes relative category co-movement. Correlation still does not establish complementarity, substitution, or causation.",
         ),
         code("""
 corr_matrix = compute_cross_family_correlations(panel)
@@ -937,10 +937,15 @@ promotion_comparison.reset_index().to_csv(TABLE_DIR / "promotion_summary.csv", i
 yearly.reset_index().to_csv(TABLE_DIR / "yearly_summary.csv", index=False)
 holiday_comparison.reset_index().to_csv(TABLE_DIR / "holiday_summary.csv", index=False)
 demand_classification.to_csv(TABLE_DIR / "demand_classification_summary.csv", index=False)
+demand_classification["demand_category"].value_counts().rename_axis("demand_category").reset_index(name="series_count").to_csv(
+    TABLE_DIR / "demand_classification_counts.csv", index=False
+)
+payday_results["summary"].reset_index().to_csv(TABLE_DIR / "payday_overall_summary.csv", index=False)
 payday_results["by_family"].reset_index().to_csv(TABLE_DIR / "payday_summary.csv", index=False)
 quake_results["regional_impact"].reset_index().to_csv(TABLE_DIR / "earthquake_regional_impact.csv", index=False)
+quake_results["family_shift"].reset_index().to_csv(TABLE_DIR / "earthquake_family_impact.csv", index=False)
 corr_matrix.reset_index().to_csv(TABLE_DIR / "cross_family_correlations.csv", index=False)
-print("Saved nine compact evidence tables to reports/tables/.")
+print("Saved twelve compact evidence tables to reports/tables/.")
         """),
         md("## Takeaways"),
         code("""
@@ -948,8 +953,9 @@ top_store = store_summary["total_sales"].idxmax()
 top_family = family_summary["total_sales"].idxmax()
 peak_weekday = weekday.idxmax()
 peak_month = int(monthly.idxmax())
-smooth_families = demand_classification.loc[demand_classification["demand_category"] == "Smooth", "family"].count()
-lumpy_families = demand_classification.loc[demand_classification["demand_category"] == "Lumpy", "family"].count()
+classification_counts = demand_classification["demand_category"].value_counts().to_dict()
+payday_lift = payday_results["summary"].loc[True, "lift_pct"]
+manabi_change = quake_results["regional_impact"].loc["Manabi", "total_change_pct"]
 display(Markdown(f'''
 - **Store {top_store}** has the highest total observed sales; store scale and variability differ materially across the network.
 - **{top_family}** contributes the most family-level sales, while family CV shows that importance and predictability are separate operational dimensions.
@@ -958,9 +964,9 @@ display(Markdown(f'''
 - Holiday effects vary by scope; date-only joins would obscure local and regional relevance.
 - Transactions and sales move together (store-day correlation **{traffic_correlation:.3f}**), but the mixed-unit sales-per-transaction measure is only a basket proxy.
 - The monthly sales/oil correlation is **{oil_corr:.3f}** and is exploratory; shared trends and omitted factors prevent causal interpretation.
-- **Demand Classification:** {smooth_families} categories exhibit smooth demand (ideal for standard forecasting), while {lumpy_families} categories exhibit lumpy demand (requiring specialized safety stock or Croston intermittent forecasting).
-- **Quincena Payday Effect:** Significant demand surge occurs on the 15th and month-end dates, confirming a recurring bi-weekly liquidity pattern across stores.
-- **External Shock:** The April 2016 earthquake caused pronounced category shifts (surge in relief essentials like food/water vs. discretionary declines) with sharp regional divergence.
+- **Demand classification:** Store–family series counts are {classification_counts}. This supports differentiated forecast evaluation and review cadence; it does not specify safety stocks without inventory inputs.
+- **Semi-month boundary association:** Average network sales are **{payday_lift:.2f}%** higher in the defined 15th/month-end window, before controlling for calendar or promotion mix.
+- **Structural-shock window:** Manabí average daily sales are **{manabi_change:.2f}%** higher in the 30 days from April 16, 2016 than in the preceding 30 days. This is temporal association, not a causal estimate.
 '''))
         """),
     ],

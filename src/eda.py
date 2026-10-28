@@ -23,7 +23,7 @@ import pandas as pd
 
 def classify_demand_patterns(
     panel: pd.DataFrame,
-    group_cols: Sequence[str] = ("family",),
+    group_cols: Sequence[str] = ("store_nbr", "family"),
 ) -> pd.DataFrame:
     """Classify retail demand series using the Syntetos-Boylan / Croston framework.
 
@@ -35,18 +35,20 @@ def classify_demand_patterns(
 
     Quadrants:
         - Smooth (ADI < 1.32, CV^2 < 0.49):
-          Regular demand with low variation. Well-suited for standard moving averages and ARIMA.
+          Regular demand with low variation; a candidate for standard forecasting methods.
         - Intermittent (ADI >= 1.32, CV^2 < 0.49):
-          Sporadic demand but stable quantities when ordered. Well-suited for Croston's method.
+          Sporadic demand but stable positive quantities; a candidate for intermittent-demand methods.
         - Erratic (ADI < 1.32, CV^2 >= 0.49):
-          Frequent demand with high size variation. Requires safety stock buffers.
+          Frequent demand with high size variation; forecast uncertainty needs explicit monitoring.
         - Lumpy (ADI >= 1.32, CV^2 >= 0.49):
           Sporadic demand with highly volatile order sizes. Most difficult to forecast;
-          requires specialized intermittent models and buffer management.
+          may warrant specialized intermittent models and closer operational review.
 
     Args:
         panel: DataFrame containing sales records with at least ['date', 'sales', *group_cols].
-        group_cols: Columns defining individual series. Defaults to ("family",).
+        group_cols: Columns defining individual time series. Defaults to
+            ("store_nbr", "family") so multiple stores are not pooled into a
+            single artificial sequence.
 
     Returns:
         pd.DataFrame: Summary table indexed by group_cols with columns:
@@ -200,7 +202,8 @@ def analyze_earthquake_impact(
     """
     quake_date = pd.Timestamp("2016-04-16")
     pre_start = quake_date - pd.Timedelta(days=window_days)
-    post_end = quake_date + pd.Timedelta(days=window_days)
+    # The event day is day 1 of the post window, so subtract one for equal windows.
+    post_end = quake_date + pd.Timedelta(days=window_days - 1)
 
     subset = panel.loc[
         panel["date"].ge(pre_start) & panel["date"].le(post_end)
@@ -209,15 +212,17 @@ def analyze_earthquake_impact(
     # Assign period
     subset["period"] = np.where(subset["date"].lt(quake_date), "pre_quake", "post_quake")
 
-    # Group by state
-    regional = subset.groupby(["state", "period"], observed=True)["sales"].sum().unstack()
+    # Compare average daily totals so the result remains valid if a boundary changes.
+    regional_daily = subset.groupby(["state", "date", "period"], observed=True)["sales"].sum().reset_index()
+    regional = regional_daily.groupby(["state", "period"], observed=True)["sales"].mean().unstack()
     regional["total_change_pct"] = round(
         100 * (regional["post_quake"] / regional["pre_quake"] - 1), 2
     )
     regional = regional.sort_values("total_change_pct", ascending=False)
 
-    # Group by product family to identify emergency essentials surge vs discretionary decline
-    family_impact = subset.groupby(["family", "period"], observed=True)["sales"].sum().unstack()
+    # Compare average daily family sales; interpretation remains descriptive.
+    family_daily = subset.groupby(["family", "date", "period"], observed=True)["sales"].sum().reset_index()
+    family_impact = family_daily.groupby(["family", "period"], observed=True)["sales"].mean().unstack()
     family_impact["sales_change_pct"] = round(
         100 * (family_impact["post_quake"] / family_impact["pre_quake"] - 1), 2
     )
@@ -234,10 +239,12 @@ def analyze_earthquake_impact(
 # ---------------------------------------------------------------------------
 
 def compute_cross_family_correlations(panel: pd.DataFrame) -> pd.DataFrame:
-    """Compute the Pearson correlation matrix of daily sales across product families.
+    """Compute correlations of daily log-sales changes across product families.
 
-    Aggregates network daily sales by category to identify clusters of product families
-    that experience co-moving demand spikes (e.g., Grocery & Beverages) or independent behavior.
+    Log differences reduce shared level trends that can otherwise create spurious
+    correlations in raw sales. The daily cross-family mean change is also removed
+    so the matrix emphasizes relative category movement beyond the common network
+    shock. Results still describe co-movement, not causation or complementarity.
 
     Args:
         panel: Sales panel DataFrame with ['date', 'family', 'sales'].
@@ -246,7 +253,9 @@ def compute_cross_family_correlations(panel: pd.DataFrame) -> pd.DataFrame:
         pd.DataFrame: Symmetrical correlation matrix of dimensions (n_families, n_families).
     """
     family_daily = panel.groupby(["date", "family"], observed=True)["sales"].sum().unstack()
-    return family_daily.corr()
+    log_changes = np.log1p(family_daily).diff().replace([np.inf, -np.inf], np.nan)
+    relative_changes = log_changes.sub(log_changes.mean(axis=1), axis=0)
+    return relative_changes.corr()
 
 
 # ---------------------------------------------------------------------------
@@ -254,12 +263,12 @@ def compute_cross_family_correlations(panel: pd.DataFrame) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 
 def analyze_promotion_elasticity(panel: pd.DataFrame) -> pd.DataFrame:
-    """Evaluate promotion participation, penetration, and sales uplift across families.
+    """Evaluate descriptive promotion participation and sales association.
 
     Computes:
         - Active promotion days percentage (penetration rate)
         - Mean sales on promoted vs non-promoted days
-        - Observed sales uplift multiplier (promoted / non-promoted ratio)
+        - Observed mean-sales ratio (promoted / non-promoted)
         - Mean promotion intensity (number of items on promotion when active)
 
     Args:
@@ -282,7 +291,7 @@ def analyze_promotion_elasticity(panel: pd.DataFrame) -> pd.DataFrame:
     summary["mean_sales_non_promoted"] = promo_split[False].round(2)
     summary["mean_sales_promoted"] = promo_split[True].round(2)
 
-    # Observed uplift ratio
+    # Observed association ratio; this is not a causal elasticity estimate.
     summary["uplift_ratio"] = (
         summary["mean_sales_promoted"] / summary["mean_sales_non_promoted"].replace(0, np.nan)
     ).round(2)
