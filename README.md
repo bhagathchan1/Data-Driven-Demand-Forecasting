@@ -2,6 +2,22 @@
 
 An MBA Year-1 Operations Management project supported by data science, using the Kaggle **Store Sales – Time Series Forecasting** competition data.
 
+## 🚀 Quick Start — Interactive Dashboard
+
+**Try the live Streamlit app** to explore the analysis interactively:
+
+```bash
+streamlit run streamlit_app.py
+```
+
+The dashboard provides:
+- 📊 **Interactive demand visualizations** across time, stores, and product families
+- 📈 **Forecasting results** with model comparisons and validation metrics
+- 🔍 **Exploratory analysis** of patterns, seasonality, and promotional effects
+- 📋 **Operations insights** on variability, peaks, and planning implications
+
+👉 **[Deploy to Streamlit Cloud](#deployment)** for instant sharing (no local setup needed).
+
 ## Project background
 
 Grocery retailers must plan labor, replenishment, store capacity, promotions, and supplier coordination despite demand that varies by date, location, category, and external events. This project examines those demand patterns and develops forecasting support without reducing the business problem to a model leaderboard exercise.
@@ -143,6 +159,40 @@ Every numbered notebook step begins with **Why this step is needed** before the 
 ## Project status
 
 **Analytical pipeline complete:** all six notebooks have been executed successfully using the seven verified Kaggle source files. The repository now includes a validated analytical subset, 19 presentation-ready analytical figures, a project canvas, compact evidence tables, forecast validation results, and an evidence-linked managerial action register. Raw Kaggle data remains local and excluded from Git.
+
+## Deployment
+
+### Streamlit Cloud (Recommended)
+
+Deploy the interactive dashboard to [Streamlit Cloud](https://streamlit.io/cloud) for free:
+
+1. Ensure all code is pushed to this GitHub repository
+2. Go to [share.streamlit.io](https://share.streamlit.io)
+3. Sign in with your GitHub account
+4. Click "New app" → Select this repository, main branch, and `streamlit_app.py`
+5. Your app will be live in ~1 minute with a shareable public URL
+
+**Requirements:** `requirements.txt` must include Streamlit (already configured).
+
+### Local Development
+
+```bash
+# Clone and setup
+git clone https://github.com/bhagathchan1/Data-Driven-Demand-Forecasting.git
+cd Data-Driven-Demand-Forecasting
+
+# Create environment
+python3 -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Run the app
+streamlit run streamlit_app.py
+```
+
+The app will open at `http://localhost:8501`.
 
 ## Academic disclaimer
 
